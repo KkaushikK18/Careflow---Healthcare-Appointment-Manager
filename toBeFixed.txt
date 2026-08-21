@@ -1,0 +1,23 @@
+❌ NOT YET FIXED (remaining issues)
+DOCTOR WORKSPACE:
+❌ Appointments Tab - Missing quick filters (Today, Upcoming, Completed)
+❌ Schedule Tab - No calendar view, missing availability rules
+ADMIN WORKSPACE:
+❌ Dashboard - System status shows fake events
+❌ Appointments Tab - Missing filters by doctor/patient/status
+❌ Doctors Tab - Modal animations could be improved
+❌ Leave & Availability - Should show all doctors' leaves
+❌ System Health Tab - Shows mock data
+SHARED COMPONENTS:
+❌ DoctorsView - No specialty filter, no rating/reviews, no date selection
+❌ Modal Component - No backdrop click, no escape key, no animations
+❌ Settings View - Not reviewed
+MISSING FEATURES (Lower Priority):
+❌ Error boundaries
+❌ Loading skeletons
+❌ Confirmation dialogs for destructive actions
+❌ Date picker UI (using HTML input)
+❌ Time zone handling
+❌ Pagination
+❌ Search/filter in most views
+❌ Keyboard shortcuts

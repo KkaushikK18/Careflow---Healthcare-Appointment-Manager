@@ -27,7 +27,7 @@ export function DoctorsView({ active }: { active: string }) {
       <div className="page-heading">
         <div><h1>{active === 'Doctors' ? 'Doctors' : 'Find a doctor'}</h1><p className="muted">Browse care teams, specialties, and availability.</p></div>
       </div>
-      <div className="quick-grid">
+      <div className="doctor-list-grid">
         {doctors?.map((d: any) => {
           const name = `Dr. ${d.firstName} ${d.lastName}`
           const initials = `${d.firstName[0]}${d.lastName[0]}`
