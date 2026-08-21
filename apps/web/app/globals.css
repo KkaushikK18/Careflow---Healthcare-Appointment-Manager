@@ -6,6 +6,140 @@
   --color-background: var(--background); --color-foreground: var(--foreground); --color-card: var(--card); --color-card-foreground: var(--card-foreground); --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground); --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground); --color-border: var(--border); --color-input: var(--input); --color-ring: var(--ring); --font-sans: 'Geist', Arial, sans-serif; --font-mono: 'Geist Mono', monospace;
 }
 :root { color-scheme: light; --background: #f6f7f4; --foreground: #172427; --card: #ffffff; --card-foreground: #172427; --primary: #147d78; --primary-foreground: #ffffff; --muted: #6d7b7d; --border: #e1e8e5; --input: #e1e8e5; --ring: #147d78; --mint: #dceee8; --amber: #b27622; --coral: #c55a51; --navy: #203b47; --sidebar: #f0f4f1; --radius: .75rem; }
+
+/* Dark Mode Variables */
+[data-theme="dark"] { 
+  color-scheme: dark; 
+  --background: #0f1415; 
+  --foreground: #e8ebe9; 
+  --card: #1a1f21; 
+  --card-foreground: #e8ebe9; 
+  --primary: #1fa89a; 
+  --primary-foreground: #ffffff; 
+  --muted: #8a9597; 
+  --border: #2a3235; 
+  --input: #2a3235; 
+  --ring: #1fa89a; 
+  --mint: #1e3935; 
+  --amber: #d89838; 
+  --coral: #e06b62; 
+  --navy: #162a33; 
+  --sidebar: #161b1d; 
+}
+
+/* Dark mode specific overrides */
+[data-theme="dark"] .topbar {
+  background: rgba(15, 20, 21, 0.8);
+}
+
+[data-theme="dark"] .role-switcher {
+  background: rgba(26, 31, 33, 0.55);
+}
+
+[data-theme="dark"] .nav-item:hover,
+[data-theme="dark"] .nav-item.active {
+  background: #1f2528;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .appointment-hero {
+  background: #1a3d45;
+  border-color: #1a3d45;
+}
+
+[data-theme="dark"] .appointment-hero .muted {
+  color: #8fa9ae;
+}
+
+[data-theme="dark"] .date-block {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .date-block span {
+  color: #7ea9a4;
+}
+
+[data-theme="dark"] .dark-button {
+  background: #1f2528;
+  color: #e8ebe9;
+}
+
+[data-theme="dark"] .primary-button {
+  box-shadow: 0 4px 12px rgba(31, 168, 154, 0.25);
+}
+
+[data-theme="dark"] .quick-action:hover {
+  border-color: #2f5f58;
+}
+
+[data-theme="dark"] .progress {
+  background: #1e3935;
+}
+
+[data-theme="dark"] .timeline-dot {
+  box-shadow: 0 0 0 4px #1e3935;
+}
+
+[data-theme="dark"] .gray-dot {
+  box-shadow: 0 0 0 4px #252a2c;
+}
+
+[data-theme="dark"] .toast {
+  background: #1e3935;
+  border-color: #2f5f58;
+  color: #a8d4cd;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .ai-card {
+  background: #1e3935;
+  border-color: #2a4842;
+}
+
+[data-theme="dark"] .ai-summary {
+  border-top-color: #2a4842;
+}
+
+[data-theme="dark"] .chart-grid {
+  background: repeating-linear-gradient(to bottom, transparent 0, transparent 43px, #1e2628 44px);
+}
+
+[data-theme="dark"] .attention-icon.warning {
+  background: #3d3020;
+  color: #d89838;
+}
+
+[data-theme="dark"] .attention-icon.danger {
+  background: #3d2422;
+  color: #e06b62;
+}
+
+[data-theme="dark"] .attention-icon.neutral {
+  background: #252a2c;
+}
+
+[data-theme="dark"] .status {
+  background: #1e3935;
+  color: #5eb5a3;
+}
+
+[data-theme="dark"] .status-warning {
+  background: #3d3020;
+  color: #d89838;
+}
+
+[data-theme="dark"] .status-neutral {
+  background: #252a2c;
+}
+
+[data-theme="dark"] .status-danger {
+  background: #3d2422;
+  color: #e06b62;
+}
+
+[data-theme="dark"] .sidebar.open {
+  box-shadow: 14px 0 30px rgba(0, 0, 0, 0.5);
+}
 * { box-sizing: border-box; border-color: var(--border); }
 html { background: var(--background); }
 body { margin: 0; background: var(--background); color: var(--foreground); font-family: var(--font-sans); font-size: 14px; line-height: 1.5; }
@@ -1850,4 +1984,86 @@ button:disabled {
     transform: translateY(0);
     opacity: 1;
   }
+}
+
+
+/* Theme Toggle Styles */
+.theme-toggle {
+  border-radius: 8px;
+  transition: background-color 0.2s, color 0.2s, transform 0.1s;
+}
+
+.theme-toggle:hover {
+  background: var(--mint);
+  color: var(--primary);
+  transform: scale(1.05);
+}
+
+.theme-toggle:active {
+  transform: scale(0.95);
+}
+
+/* Smooth color transitions for theme switching */
+*,
+*::before,
+*::after {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Prevent transitions on page load */
+.no-transition * {
+  transition: none !important;
+}
+
+/* Improve dark mode shadows */
+[data-theme="dark"] .surface {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .primary-button {
+  box-shadow: 0 4px 12px rgba(31, 168, 154, 0.35);
+}
+
+[data-theme="dark"] .nav-item.active {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Dark mode scrollbar */
+[data-theme="dark"]::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+[data-theme="dark"]::-webkit-scrollbar-track {
+  background: #161b1d;
+}
+
+[data-theme="dark"]::-webkit-scrollbar-thumb {
+  background: #2a3235;
+  border-radius: 5px;
+}
+
+[data-theme="dark"]::-webkit-scrollbar-thumb:hover {
+  background: #3a4245;
+}
+
+/* Dark mode selection */
+[data-theme="dark"] ::selection {
+  background: #1fa89a;
+  color: white;
+}
+
+/* Dark mode input focus rings */
+[data-theme="dark"] input:focus,
+[data-theme="dark"] textarea:focus,
+[data-theme="dark"] select:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Dark mode placeholder text */
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.6;
 }

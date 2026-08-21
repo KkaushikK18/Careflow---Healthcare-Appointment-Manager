@@ -5,7 +5,7 @@ import { Activity, Bell, CalendarDays, Check, ChevronRight, Clock3, FileText, He
 import { type Role } from '@/lib/mock-services'
 import { useAuth } from './auth-provider'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { fetchAppointments, fetchMedications, fetchAdminMetrics, fetchMessages, sendMessage, fetchPatients, fetchLeaves, addLeave } from '@/lib/api'
+import { fetchAppointments, fetchMedications, fetchAdminMetrics, fetchMessages, sendMessage, fetchPatients, fetchLeaves, addLeave, fetchDoctors, addDoctorLeave, fetchAllLeaves } from '@/lib/api'
 import { LoginScreen } from './login-screen'
 import { RegisterScreen } from './register-screen'
 import { DoctorsView } from './doctors-view'
@@ -21,6 +21,7 @@ import { TableSkeleton, CardSkeleton, AppointmentSkeleton, MessageSkeleton, Metr
 import { ConfirmDialog, useConfirmDialog } from './confirm-dialog'
 import { DatePicker } from './date-picker'
 import { formatDateTime, formatDate, formatTime, formatRelativeTime, getSmartDateDisplay } from '@/lib/timezone'
+import { ThemeToggle } from './theme-toggle'
 
 type NavItem = [string, typeof LayoutDashboard]
 const nav: Record<Role, NavItem[]> = {
@@ -512,8 +513,14 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
 
   const { data: realLeaves, isLoading: leavesLoading, refetch: refetchLeaves } = useQuery({
     queryKey: ['leaves', role],
-    queryFn: () => fetchLeaves(token as string),
-    enabled: !!token && role === 'doctor'
+    queryFn: () => role === 'admin' ? fetchAllLeaves(token as string) : fetchLeaves(token as string),
+    enabled: !!token && (role === 'doctor' || role === 'admin')
+  });
+
+  const { data: allDoctors, isLoading: doctorsLoading } = useQuery({
+    queryKey: ['allDoctors'],
+    queryFn: () => fetchDoctors(),
+    enabled: role === 'admin' // Only fetch for admin users
   });
 
   const [showMessageModal, setShowMessageModal] = useState(false);
@@ -529,6 +536,7 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
   
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [scheduleDate, setScheduleDate] = useState('');
+  const [adminSelectedDoctor, setAdminSelectedDoctor] = useState('');
   const [showPrescribeModal, setShowPrescribeModal] = useState(false);
   const [showAppointmentActionsModal, setShowAppointmentActionsModal] = useState(false);
   const [showBookingModal, setShowBookingModal] = useState(false);
@@ -1537,7 +1545,39 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
     })() : null;
 
     return <>
-      <Modal isOpen={showScheduleModal} onClose={() => setShowScheduleModal(false)} title="Add Availability Block">
+      <Modal isOpen={showScheduleModal} onClose={() => setShowScheduleModal(false)} title={isAdmin ? "Block Doctor Availability" : "Add Availability Block"}>
+        {isAdmin && (
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>Select Doctor</label>
+            <select
+              className="modal-select"
+              value={adminSelectedDoctor}
+              onChange={(e) => setAdminSelectedDoctor(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                background: 'var(--card)',
+                color: 'var(--foreground)',
+                fontSize: '14px'
+              }}
+            >
+              <option value="">Select a doctor...</option>
+              {doctorsLoading ? (
+                <option disabled>Loading doctors...</option>
+              ) : allDoctors?.length > 0 ? (
+                allDoctors.map((doctor: any) => (
+                  <option key={doctor.id} value={doctor.id}>
+                    Dr. {doctor.firstName} {doctor.lastName} - {doctor.specialisation}
+                  </option>
+                ))
+              ) : (
+                <option disabled>No doctors available</option>
+              )}
+            </select>
+          </div>
+        )}
         <div style={{ marginBottom: 20 }}>
           <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>Date to block</label>
           <DatePicker
@@ -1550,7 +1590,23 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
           <button className="text-button" onClick={() => setShowScheduleModal(false)}>Cancel</button>
           <button className="primary-button" onClick={async () => {
+             console.log('Confirm Block clicked'); // Debug
+             console.log('isAdmin:', isAdmin); // Debug
+             console.log('adminSelectedDoctor:', adminSelectedDoctor); // Debug
+             console.log('scheduleDate:', scheduleDate); // Debug
+             
+             if (isAdmin && !adminSelectedDoctor) {
+               console.log('Validation: Doctor not selected'); // Debug
+               toast({
+                 title: 'Validation Error',
+                 description: 'Please select a doctor',
+                 variant: 'destructive'
+               });
+               return;
+             }
+             
              if (!scheduleDate) {
+               console.log('Validation: Date not selected'); // Debug
                toast({
                  title: 'Validation Error',
                  description: 'Please select a date',
@@ -1559,27 +1615,44 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
                return;
              }
              
-             const confirmed = await confirm({
-               title: 'Block Availability',
-               message: `Are you sure you want to block ${formatDate(scheduleDate, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}? You won't be able to accept appointments on this date.`,
-               confirmText: 'Confirm Block',
-               cancelText: 'Cancel',
-               variant: 'warning'
-             });
-             
-             if (!confirmed) return;
+             console.log('Showing confirmation dialog...'); // Debug
              
              try {
-               await addLeave(token as string, scheduleDate);
+               const confirmed = await confirm({
+                 title: 'Block Availability',
+                 message: `Are you sure you want to block ${formatDate(scheduleDate, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}?${isAdmin ? ' This will prevent the selected doctor from accepting appointments on this date.' : " You won't be able to accept appointments on this date."}`,
+                 confirmText: 'Confirm Block',
+                 cancelText: 'Cancel',
+                 variant: 'warning'
+               });
+               
+               console.log('Confirmation result:', confirmed); // Debug
+               
+               if (!confirmed) {
+                 console.log('User cancelled'); // Debug
+                 return;
+               }
+               
+               if (isAdmin) {
+                 console.log('Admin adding leave for doctor:', adminSelectedDoctor); // Debug
+                 await addDoctorLeave(token as string, adminSelectedDoctor, scheduleDate);
+               } else {
+                 console.log('Doctor adding leave for self'); // Debug
+                 await addLeave(token as string, scheduleDate);
+               }
+               
+               console.log('Leave added successfully'); // Debug
+               
                setShowScheduleModal(false);
                setScheduleDate('');
+               setAdminSelectedDoctor('');
                refetchLeaves();
                toast({
                  title: 'Success',
                  description: 'Leave/availability block added successfully'
                });
              } catch (error: any) {
-               console.error('Error adding leave:', error);
+               console.error('Error in confirm block handler:', error);
                toast({
                  title: 'Error',
                  description: error.message || 'Failed to add leave',
@@ -1851,6 +1924,7 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
           </Card>
         </div>
       )}
+      {dialog}
     </>
   }
   // System Health Tab - Real metrics
@@ -2041,7 +2115,7 @@ function CareFlowApp() {
     );
   }
   
-  return <div className="app-shell"><aside className={mobileOpen ? 'sidebar open' : 'sidebar'}><div className="brand"><span className="brand-mark"><HeartPulse size={18}/></span><span>Care<span>Flow</span></span><button className="close-mobile" onClick={() => setMobileOpen(false)}><X size={18}/></button></div><div className="role-switcher" style={{padding: "10px 15px", borderBottom: "1px solid var(--border)", display: 'flex', justifyContent: 'space-between'}}><span>Workspace Role</span><strong>{role.toUpperCase()}</strong></div><nav>{currentNav.map(([label, Icon]) => <button className={active === label ? 'nav-item active' : 'nav-item'} key={label} onClick={() => go(label)}><Icon size={17}/><span>{label}</span></button>)}</nav><div className="sidebar-bottom"><button className={`nav-item ${active === 'Settings' ? 'active' : ''}`} onClick={() => go('Settings')}><Settings2 size={17}/><span>Settings</span></button><div className="profile-chip" style={{cursor: 'pointer'}} onClick={logout}><Avatar initials={initials}/><span><strong>{user?.email}</strong><small>{roles[role]}</small></span><MoreHorizontal size={16}/></div></div></aside><div className="main-area"><header className="topbar"><button className="mobile-menu" onClick={() => setMobileOpen(true)} aria-label="Open navigation"><Menu size={20}/></button><div className="breadcrumb"><span>Workspace</span><ChevronRight size={14}/><strong>{active}</strong></div><div className="top-actions"><button className="icon-button notification" aria-label="Notifications" onClick={() => setNotice('No new notifications')}><Bell size={18}/><span/></button><div className="top-avatar" onClick={logout} style={{cursor: 'pointer'}}>{initials}</div></div></header><main className="content">{active === 'Settings' ? <SettingsView setNotice={setNotice} /> : <RecordsView role={role} active={active} go={go}/>} </main></div>{notice && <button className="toast" onClick={() => setNotice('')}><Bell size={16}/> {notice}<X size={15}/></button>}</div>
+  return <div className="app-shell"><aside className={mobileOpen ? 'sidebar open' : 'sidebar'}><div className="brand"><span className="brand-mark"><HeartPulse size={18}/></span><span>Care<span>Flow</span></span><button className="close-mobile" onClick={() => setMobileOpen(false)}><X size={18}/></button></div><div className="role-switcher" style={{padding: "10px 15px", borderBottom: "1px solid var(--border)", display: 'flex', justifyContent: 'space-between'}}><span>Workspace Role</span><strong>{role.toUpperCase()}</strong></div><nav>{currentNav.map(([label, Icon]) => <button className={active === label ? 'nav-item active' : 'nav-item'} key={label} onClick={() => go(label)}><Icon size={17}/><span>{label}</span></button>)}</nav><div className="sidebar-bottom"><button className={`nav-item ${active === 'Settings' ? 'active' : ''}`} onClick={() => go('Settings')}><Settings2 size={17}/><span>Settings</span></button><div className="profile-chip" style={{cursor: 'pointer'}} onClick={logout}><Avatar initials={initials}/><span><strong>{user?.email}</strong><small>{roles[role]}</small></span><MoreHorizontal size={16}/></div></div></aside><div className="main-area"><header className="topbar"><button className="mobile-menu" onClick={() => setMobileOpen(true)} aria-label="Open navigation"><Menu size={20}/></button><div className="breadcrumb"><span>Workspace</span><ChevronRight size={14}/><strong>{active}</strong></div><div className="top-actions"><ThemeToggle /><button className="icon-button notification" aria-label="Notifications" onClick={() => setNotice('No new notifications')}><Bell size={18}/><span/></button><div className="top-avatar" onClick={logout} style={{cursor: 'pointer'}}>{initials}</div></div></header><main className="content">{active === 'Settings' ? <SettingsView setNotice={setNotice} /> : <RecordsView role={role} active={active} go={go}/>} </main></div>{notice && <button className="toast" onClick={() => setNotice('')}><Bell size={16}/> {notice}<X size={15}/></button>}</div>
 }
 
 // Wrap with ErrorBoundary for production resilience

@@ -348,4 +348,79 @@ export class AdminService {
       totalLeaves: doctor._count.leaves
     };
   }
+
+  /**
+   * Add leave/availability block for a doctor (admin only)
+   */
+  async addDoctorLeave(doctorId: string, date: string) {
+    // Validate doctor exists
+    const doctor = await this.prisma.doctorProfile.findUnique({
+      where: { id: doctorId }
+    });
+
+    if (!doctor) {
+      throw new NotFoundException(`Doctor with ID ${doctorId} not found`);
+    }
+
+    // Validate date format
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(date)) {
+      throw new BadRequestException('Date must be in YYYY-MM-DD format');
+    }
+
+    const leaveDate = new Date(date);
+    if (isNaN(leaveDate.getTime())) {
+      throw new BadRequestException('Invalid date provided');
+    }
+
+    // Check if leave already exists for this date
+    const existingLeave = await this.prisma.doctorLeave.findFirst({
+      where: {
+        doctorId,
+        date: leaveDate
+      }
+    });
+
+    if (existingLeave) {
+      throw new ConflictException('Leave already exists for this date');
+    }
+
+    // Create leave
+    return this.prisma.doctorLeave.create({
+      data: {
+        doctorId,
+        date: leaveDate
+      },
+      include: {
+        doctor: {
+          select: {
+            firstName: true,
+            lastName: true,
+            specialisation: true
+          }
+        }
+      }
+    });
+  }
+
+  /**
+   * Get all leaves for all doctors (admin only)
+   */
+  async getAllLeaves() {
+    return this.prisma.doctorLeave.findMany({
+      include: {
+        doctor: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            specialisation: true
+          }
+        }
+      },
+      orderBy: {
+        date: 'asc'
+      }
+    });
+  }
 }

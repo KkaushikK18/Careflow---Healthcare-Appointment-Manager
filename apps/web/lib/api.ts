@@ -225,6 +225,30 @@ export async function deleteDoctor(token: string, doctorId: string) {
   return res.json()
 }
 
+export async function addDoctorLeave(token: string, doctorId: string, date: string) {
+  const res = await fetch(`${API_URL}/admin/doctors/${doctorId}/leave`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ date })
+  })
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(error.message || 'Failed to add leave for doctor')
+  }
+  return res.json()
+}
+
+export async function fetchAllLeaves(token: string) {
+  const res = await fetch(`${API_URL}/admin/leaves`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  })
+  if (!res.ok) throw new Error('Failed to fetch all leaves')
+  return res.json()
+}
+
 // Prescriptions API Functions
 export interface CreatePrescriptionDto {
   appointmentId: string

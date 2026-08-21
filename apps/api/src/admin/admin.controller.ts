@@ -71,4 +71,18 @@ export class AdminController {
     this.checkAdmin(req);
     return this.adminService.deleteDoctor(id);
   }
+
+  @UseGuards(AuthGuard)
+  @Post('doctors/:id/leave')
+  addDoctorLeave(@Request() req: any, @Param('id') doctorId: string, @Body('date') date: string) {
+    this.checkAdmin(req);
+    return this.adminService.addDoctorLeave(doctorId, date);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('leaves')
+  getAllLeaves(@Request() req: any) {
+    this.checkAdmin(req);
+    return this.adminService.getAllLeaves();
+  }
 }
