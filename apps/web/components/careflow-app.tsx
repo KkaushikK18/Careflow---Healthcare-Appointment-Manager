@@ -478,8 +478,88 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
   const [patientsSearch, setPatientsSearch] = useState('');
   const [messagesSearch, setMessagesSearch] = useState('');
   
-  // Pagination for appointments (initialize later after filtering)
-  const [appointmentsPaginationEnabled, setAppointmentsPaginationEnabled] = useState(false);
+  // Calculate filtered appointments at top level using useMemo
+  const filteredAppointments = useMemo(() => {
+    if (!realAppointments || active !== 'Appointments') return [];
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    let filtered = [...realAppointments];
+    
+    // Doctor filters
+    if (role === 'doctor' && appointmentFilter === 'today') {
+      filtered = filtered.filter((a: any) => {
+        const apptDate = new Date(a.startTime);
+        apptDate.setHours(0, 0, 0, 0);
+        return apptDate.getTime() === today.getTime();
+      });
+    } else if (role === 'doctor' && appointmentFilter === 'upcoming') {
+      filtered = filtered.filter((a: any) => {
+        const apptDate = new Date(a.startTime);
+        return apptDate >= tomorrow && a.status !== 'COMPLETED' && a.status !== 'CANCELLED';
+      });
+    } else if (role === 'doctor' && appointmentFilter === 'completed') {
+      filtered = filtered.filter((a: any) => a.status === 'COMPLETED');
+    }
+    
+    // Admin filters
+    if (role === 'admin') {
+      if (adminDoctorFilter !== 'all') {
+        filtered = filtered.filter((a: any) => a.doctor?.id === adminDoctorFilter);
+      }
+      if (adminPatientFilter !== 'all') {
+        filtered = filtered.filter((a: any) => a.patient?.id === adminPatientFilter);
+      }
+      if (adminStatusFilter !== 'all') {
+        filtered = filtered.filter((a: any) => a.status === adminStatusFilter);
+      }
+    }
+    
+    return filtered;
+  }, [realAppointments, role, appointmentFilter, adminDoctorFilter, adminPatientFilter, adminStatusFilter, active]);
+  
+  // Pagination hooks at top level (always called)
+  const appointmentsPagination = usePagination(filteredAppointments, 10);
+  
+  // Calculate filtered patients list
+  const patientsList = useMemo(() => {
+    if (!realAppointments || active !== 'Patients') return [];
+    
+    const patientsMap = new Map();
+    realAppointments.forEach((a: any) => {
+      if (a.patient) {
+        const pid = a.patient.id;
+        if (!patientsMap.has(pid)) {
+          patientsMap.set(pid, {
+            id: pid,
+            name: `${a.patient.firstName} ${a.patient.lastName}`,
+            email: a.patient.email,
+            lastVisit: a.startTime,
+            status: a.status,
+            followUp: null
+          });
+        }
+      }
+    });
+    
+    let patients = Array.from(patientsMap.values());
+    
+    // Apply search filter
+    if (patientsSearch) {
+      const searchLower = patientsSearch.toLowerCase();
+      patients = patients.filter((p: any) => 
+        p.name.toLowerCase().includes(searchLower) || 
+        p.email.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    return patients;
+  }, [realAppointments, patientsSearch, active]);
+  
+  const patientsPagination = usePagination(patientsList, 10);
   
   const { data: realAppointments, isLoading: appsLoading } = useQuery({
     queryKey: ['appointments', role],
@@ -781,52 +861,12 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
               {(() => {
                 if (appsLoading) return <Row><Cell colSpan={5}><TableSkeleton rows={3} /></Cell></Row>;
                 
-                // Filter appointments based on role and selected filters
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                const tomorrow = new Date(today);
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                
-                let filteredAppointments = realAppointments || [];
-                
-                // Doctor filters
-                if (role === 'doctor' && appointmentFilter === 'today') {
-                  filteredAppointments = filteredAppointments.filter((a: any) => {
-                    const apptDate = new Date(a.startTime);
-                    apptDate.setHours(0, 0, 0, 0);
-                    return apptDate.getTime() === today.getTime();
-                  });
-                } else if (role === 'doctor' && appointmentFilter === 'upcoming') {
-                  filteredAppointments = filteredAppointments.filter((a: any) => {
-                    const apptDate = new Date(a.startTime);
-                    return apptDate >= tomorrow && a.status !== 'COMPLETED' && a.status !== 'CANCELLED';
-                  });
-                } else if (role === 'doctor' && appointmentFilter === 'completed') {
-                  filteredAppointments = filteredAppointments.filter((a: any) => 
-                    a.status === 'COMPLETED'
-                  );
-                }
-                
-                // Admin filters
-                if (role === 'admin') {
-                  if (adminDoctorFilter !== 'all') {
-                    filteredAppointments = filteredAppointments.filter((a: any) => a.doctor?.id === adminDoctorFilter);
-                  }
-                  if (adminPatientFilter !== 'all') {
-                    filteredAppointments = filteredAppointments.filter((a: any) => a.patient?.id === adminPatientFilter);
-                  }
-                  if (adminStatusFilter !== 'all') {
-                    filteredAppointments = filteredAppointments.filter((a: any) => a.status === adminStatusFilter);
-                  }
-                }
-                
                 if (filteredAppointments.length === 0) {
                   return <Row><Cell colSpan={5}><div style={{padding: 20}}>No appointments found.</div></Cell></Row>;
                 }
                 
-                // Use pagination hook
-                const pagination = usePagination(filteredAppointments, 10);
-                const { currentItems, currentPage, totalPages, setPage, totalItems } = pagination;
+                // Use pre-calculated pagination from top level
+                const { currentItems, currentPage, totalPages, setPage, totalItems } = appointmentsPagination;
                 
                 return (
                   <>
@@ -875,52 +915,12 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
           {(() => {
             if (appsLoading) return <div style={{padding: 20, textAlign: 'center'}}><CardSkeleton /></div>;
             
-            // Filter appointments (same logic as desktop)
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            
-            let filteredAppointments = realAppointments || [];
-            
-            // Doctor filters
-            if (role === 'doctor' && appointmentFilter === 'today') {
-              filteredAppointments = filteredAppointments.filter((a: any) => {
-                const apptDate = new Date(a.startTime);
-                apptDate.setHours(0, 0, 0, 0);
-                return apptDate.getTime() === today.getTime();
-              });
-            } else if (role === 'doctor' && appointmentFilter === 'upcoming') {
-              filteredAppointments = filteredAppointments.filter((a: any) => {
-                const apptDate = new Date(a.startTime);
-                return apptDate >= tomorrow && a.status !== 'COMPLETED' && a.status !== 'CANCELLED';
-              });
-            } else if (role === 'doctor' && appointmentFilter === 'completed') {
-              filteredAppointments = filteredAppointments.filter((a: any) => 
-                a.status === 'COMPLETED'
-              );
-            }
-            
-            // Admin filters
-            if (role === 'admin') {
-              if (adminDoctorFilter !== 'all') {
-                filteredAppointments = filteredAppointments.filter((a: any) => a.doctor?.id === adminDoctorFilter);
-              }
-              if (adminPatientFilter !== 'all') {
-                filteredAppointments = filteredAppointments.filter((a: any) => a.patient?.id === adminPatientFilter);
-              }
-              if (adminStatusFilter !== 'all') {
-                filteredAppointments = filteredAppointments.filter((a: any) => a.status === adminStatusFilter);
-              }
-            }
-            
             if (filteredAppointments.length === 0) {
               return <div style={{padding: 20, textAlign: 'center'}}>No appointments found.</div>;
             }
             
-            // Use pagination hook
-            const pagination = usePagination(filteredAppointments, 10);
-            const { currentItems, currentPage, totalPages, setPage, totalItems } = pagination;
+            // Use pre-calculated pagination from top level
+            const { currentItems, currentPage, totalPages, setPage, totalItems } = appointmentsPagination;
             
             return (
               <>
@@ -1366,8 +1366,6 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
       );
     }
     
-    // Pagination
-    const pagination = usePagination(patientsList, 10);
     
     return <>
       <Heading title="Patients" subtitle="Your active patient panel and visit history."/>
@@ -1408,7 +1406,7 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
                 <Row><Cell><div style={{padding: 20}}>
                   {patientsSearch ? `No patients found matching "${patientsSearch}"` : 'No patients found.'}
                 </div></Cell></Row>
-              ) : pagination.currentItems.map((p: any) => {
+              ) : patientsPagination.currentItems.map((p: any) => {
                 const lastVisitDate = new Date(p.lastVisit);
                 const daysSinceVisit = Math.floor((Date.now() - lastVisitDate.getTime()) / (1000 * 60 * 60 * 24));
                 const initials = p.name.split(' ').map((x: string) => x[0]).join('');
@@ -1457,9 +1455,11 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
         <div className="responsive-table-mobile">
           {appsLoading ? (
             <div style={{padding: 20, textAlign: 'center'}}>Loading...</div>
-          ) : patientsList.length === 0 ? (
-            <div style={{padding: 20, textAlign: 'center'}}>No patients found.</div>
-          ) : patientsList.map((p: any) => {
+          ) : patientsPagination.currentItems.length === 0 ? (
+            <div style={{padding: 20, textAlign: 'center'}}>
+              {patientsSearch ? `No patients found matching "${patientsSearch}"` : 'No patients found.'}
+            </div>
+          ) : patientsPagination.currentItems.map((p: any) => {
             const lastVisitDate = new Date(p.lastVisit);
             const daysSinceVisit = Math.floor((Date.now() - lastVisitDate.getTime()) / (1000 * 60 * 60 * 24));
             const initials = p.name.split(' ').map((x: string) => x[0]).join('');
@@ -1488,12 +1488,12 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
         </div>
         
         {/* Pagination */}
-        {pagination.totalPages > 1 && (
+        {patientsPagination.totalPages > 1 && (
           <Pagination
-            currentPage={pagination.currentPage}
-            totalPages={pagination.totalPages}
-            onPageChange={pagination.setPage}
-            totalItems={pagination.totalItems}
+            currentPage={patientsPagination.currentPage}
+            totalPages={patientsPagination.totalPages}
+            onPageChange={patientsPagination.setPage}
+            totalItems={patientsPagination.totalItems}
             itemsPerPage={10}
           />
         )}
