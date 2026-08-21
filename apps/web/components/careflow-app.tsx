@@ -28,17 +28,32 @@ const roles = { patient: 'Patient', doctor: 'Cardiologist', admin: 'Administrato
 
 function Modal({ isOpen, onClose, title, children }: any) {
   if (!isOpen) return null;
+  
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ background: 'var(--background)', borderRadius: 12, padding: 24, width: '100%', maxWidth: 500, boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 20 }}>{title}</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}><X size={20}/></button>
+    <div 
+      className="modal-overlay modal-backdrop" 
+      onClick={(e) => {
+        // Close on backdrop click
+        if (e.target === e.currentTarget) onClose();
+      }}
+      onKeyDown={(e) => {
+        // Close on Escape key
+        if (e.key === 'Escape') onClose();
+      }}
+    >
+      <div className="modal-container modal-content-animated">
+        <div className="modal-header">
+          <h2>{title}</h2>
+          <button className="modal-close-button" onClick={onClose} aria-label="Close modal">
+            <X size={20}/>
+          </button>
         </div>
-        {children}
+        <div className="modal-body">
+          {children}
+        </div>
       </div>
     </div>
-  )
+  );
 }
 function Status({ children, tone = 'success' }: { children: React.ReactNode; tone?: 'success'|'warning'|'neutral'|'danger' }) { return <span className={`status status-${tone}`}><span className="status-dot" />{children}</span> }
 function Avatar({ initials, tone = 'teal' }: { initials: string; tone?: string }) { return <div className={`avatar avatar-${tone}`}>{initials}</div> }
@@ -220,10 +235,10 @@ function PatientDashboard({ go, appointments, meds, isLoading }: { go: (label: s
         <div className="timeline">
           {isLoading ? (
             <p style={{ padding: 10 }}>Loading...</p>
-          ) : appointments?.length === 0 ? (
+          ) : !appointments || appointments.length === 0 ? (
             <p className="muted" style={{ padding: 10 }}>No recent activity</p>
           ) : (
-            appointments.slice(0, 3).map((apt: any, idx: number) => {
+            appointments?.slice(0, 3).map((apt: any, idx: number) => {
               const aptDate = new Date(apt.startTime);
               const isUpcoming = aptDate > new Date();
               return (
@@ -615,7 +630,7 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
         action={role === 'patient' ? <button className="primary-button" onClick={() => setShowBookingModal(true)}><Plus size={17}/> New appointment</button> : undefined}
       />
 
-      {/* Quick Filters - Only for Doctor */}
+      {/* Quick Filters - For Doctor */}
       {role === 'doctor' && (
         <div className="appointment-filters">
           <button 
@@ -645,6 +660,74 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
         </div>
       )}
 
+      {/* Advanced Filters - For Admin */}
+      {role === 'admin' && (
+        <div className="admin-filters">
+          <div className="filter-group">
+            <label>Filter by Doctor</label>
+            <select 
+              className="modal-select" 
+              value={adminDoctorFilter} 
+              onChange={(e) => setAdminDoctorFilter(e.target.value)}
+            >
+              <option value="all">All Doctors</option>
+              {Array.from(new Set(realAppointments?.map((a: any) => a.doctor?.id).filter(Boolean))).map((doctorId: any) => {
+                const doctor = realAppointments?.find((a: any) => a.doctor?.id === doctorId)?.doctor;
+                return (
+                  <option key={doctorId} value={doctorId}>
+                    Dr. {doctor?.firstName} {doctor?.lastName}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          <div className="filter-group">
+            <label>Filter by Patient</label>
+            <select 
+              className="modal-select" 
+              value={adminPatientFilter} 
+              onChange={(e) => setAdminPatientFilter(e.target.value)}
+            >
+              <option value="all">All Patients</option>
+              {Array.from(new Set(realAppointments?.map((a: any) => a.patient?.id).filter(Boolean))).map((patientId: any) => {
+                const patient = realAppointments?.find((a: any) => a.patient?.id === patientId)?.patient;
+                return (
+                  <option key={patientId} value={patientId}>
+                    {patient?.firstName} {patient?.lastName}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          <div className="filter-group">
+            <label>Filter by Status</label>
+            <select 
+              className="modal-select" 
+              value={adminStatusFilter} 
+              onChange={(e) => setAdminStatusFilter(e.target.value)}
+            >
+              <option value="all">All Statuses</option>
+              <option value="CONFIRMED">Confirmed</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+          </div>
+
+          <button 
+            className="text-button" 
+            onClick={() => {
+              setAdminDoctorFilter('all');
+              setAdminPatientFilter('all');
+              setAdminStatusFilter('all');
+            }}
+          >
+            Clear Filters
+          </button>
+        </div>
+      )}
+
       <Card>
         {/* Desktop Table View */}
         <div className="responsive-table-desktop">
@@ -662,7 +745,7 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
               {(() => {
                 if (appsLoading) return <Row><Cell><div style={{padding: 20}}>Loading...</div></Cell></Row>;
                 
-                // Filter appointments based on selected filter
+                // Filter appointments based on role and selected filters
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
                 const tomorrow = new Date(today);
@@ -670,21 +753,35 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
                 
                 let filteredAppointments = realAppointments || [];
                 
-                if (appointmentFilter === 'today') {
+                // Doctor filters
+                if (role === 'doctor' && appointmentFilter === 'today') {
                   filteredAppointments = filteredAppointments.filter((a: any) => {
                     const apptDate = new Date(a.startTime);
                     apptDate.setHours(0, 0, 0, 0);
                     return apptDate.getTime() === today.getTime();
                   });
-                } else if (appointmentFilter === 'upcoming') {
+                } else if (role === 'doctor' && appointmentFilter === 'upcoming') {
                   filteredAppointments = filteredAppointments.filter((a: any) => {
                     const apptDate = new Date(a.startTime);
                     return apptDate >= tomorrow && a.status !== 'COMPLETED' && a.status !== 'CANCELLED';
                   });
-                } else if (appointmentFilter === 'completed') {
+                } else if (role === 'doctor' && appointmentFilter === 'completed') {
                   filteredAppointments = filteredAppointments.filter((a: any) => 
                     a.status === 'COMPLETED'
                   );
+                }
+                
+                // Admin filters
+                if (role === 'admin') {
+                  if (adminDoctorFilter !== 'all') {
+                    filteredAppointments = filteredAppointments.filter((a: any) => a.doctor?.id === adminDoctorFilter);
+                  }
+                  if (adminPatientFilter !== 'all') {
+                    filteredAppointments = filteredAppointments.filter((a: any) => a.patient?.id === adminPatientFilter);
+                  }
+                  if (adminStatusFilter !== 'all') {
+                    filteredAppointments = filteredAppointments.filter((a: any) => a.status === adminStatusFilter);
+                  }
                 }
                 
                 if (filteredAppointments.length === 0) {
@@ -727,21 +824,35 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
             
             let filteredAppointments = realAppointments || [];
             
-            if (appointmentFilter === 'today') {
+            // Doctor filters
+            if (role === 'doctor' && appointmentFilter === 'today') {
               filteredAppointments = filteredAppointments.filter((a: any) => {
                 const apptDate = new Date(a.startTime);
                 apptDate.setHours(0, 0, 0, 0);
                 return apptDate.getTime() === today.getTime();
               });
-            } else if (appointmentFilter === 'upcoming') {
+            } else if (role === 'doctor' && appointmentFilter === 'upcoming') {
               filteredAppointments = filteredAppointments.filter((a: any) => {
                 const apptDate = new Date(a.startTime);
                 return apptDate >= tomorrow && a.status !== 'COMPLETED' && a.status !== 'CANCELLED';
               });
-            } else if (appointmentFilter === 'completed') {
+            } else if (role === 'doctor' && appointmentFilter === 'completed') {
               filteredAppointments = filteredAppointments.filter((a: any) => 
                 a.status === 'COMPLETED'
               );
+            }
+            
+            // Admin filters
+            if (role === 'admin') {
+              if (adminDoctorFilter !== 'all') {
+                filteredAppointments = filteredAppointments.filter((a: any) => a.doctor?.id === adminDoctorFilter);
+              }
+              if (adminPatientFilter !== 'all') {
+                filteredAppointments = filteredAppointments.filter((a: any) => a.patient?.id === adminPatientFilter);
+              }
+              if (adminStatusFilter !== 'all') {
+                filteredAppointments = filteredAppointments.filter((a: any) => a.status === adminStatusFilter);
+              }
             }
             
             if (filteredAppointments.length === 0) {
@@ -1218,6 +1329,9 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
     </>
   }
   if (active === 'Schedule' || active === 'Leave & availability') {
+    // Admin sees all doctors' leaves, Doctor sees their own
+    const isAdmin = role === 'admin';
+    
     // Generate calendar for current week
     const today = new Date();
     const currentWeekStart = new Date(today);
@@ -1244,6 +1358,19 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
         return aptDate.toDateString() === date.toDateString();
       }) || [];
     };
+
+    // For admin: Group leaves by doctor
+    const leavesByDoctor = isAdmin ? (() => {
+      const grouped = new Map();
+      realLeaves?.forEach((leave: any) => {
+        const doctorId = leave.doctorId || 'unknown';
+        if (!grouped.has(doctorId)) {
+          grouped.set(doctorId, []);
+        }
+        grouped.get(doctorId).push(leave);
+      });
+      return grouped;
+    })() : null;
 
     return <>
       <Modal isOpen={showScheduleModal} onClose={() => setShowScheduleModal(false)} title="Add Availability Block">
@@ -1448,14 +1575,36 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
       ) : (
         <div className="content-grid">
           <Card>
-            <h2>Upcoming Leave</h2>
-            <p className="muted">Blocked out days</p>
+            <h2>{isAdmin ? 'All Doctors\' Leave' : 'Upcoming Leave'}</h2>
+            <p className="muted">{isAdmin ? 'Leave schedules across all doctors' : 'Blocked out days'}</p>
             <div className="schedule-list">
               {leavesLoading ? (
                 <p>Loading...</p>
               ) : realLeaves?.length === 0 ? (
                 <p className="muted">No leave scheduled.</p>
+              ) : isAdmin ? (
+                // Admin view: Show all doctors' leaves
+                realLeaves?.map((l: any) => {
+                  // Find doctor info from appointments
+                  const doctor = realAppointments?.find((a: any) => a.doctor?.id === l.doctorId)?.doctor;
+                  return (
+                    <div className="schedule-row" key={l.id}>
+                      <div className="schedule-time">
+                        <small>ALL DAY</small>
+                      </div>
+                      <div className="schedule-line"/>
+                      <div className="schedule-patient">
+                        <strong>{new Date(l.date).toLocaleDateString()}</strong>
+                        <span>
+                          {doctor ? `Dr. ${doctor.firstName} ${doctor.lastName}` : 'Doctor'} - Leave
+                        </span>
+                      </div>
+                      <Status tone="warning">Busy</Status>
+                    </div>
+                  );
+                })
               ) : (
+                // Doctor view: Show own leaves
                 realLeaves?.map((l: any) => (
                   <div className="schedule-row" key={l.id}>
                     <div className="schedule-time">
@@ -1518,7 +1667,167 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
       )}
     </>
   }
-  return <><Heading title="System health" subtitle="Live operational checks across CareFlow services."/><div className="metric-grid">{[['API services','99.98%','Operational'],['Notifications','Healthy','No delays'],['Data backups','Today, 03:00','Completed'],['Security checks','Passed','Last scan 2h ago']].map(([l,v,d]) => <Card className="metric-card" key={l}><p className="muted">{l}</p><strong style={{fontSize:22}}>{v}</strong><span><Status>{d}</Status></span></Card>)}</div><Card><h2>Recent system events</h2><div className="timeline"><div><span className="timeline-dot teal-dot"/><p><strong>All services operational</strong><small>Health check completed · 2 minutes ago</small></p></div><div><span className="timeline-dot gray-dot"/><p><strong>Backup completed</strong><small>Encrypted snapshot stored · Today, 03:00</small></p></div></div></Card></>
+  // System Health Tab - Real metrics
+  if (active === 'System health') {
+    // Calculate real system health metrics
+    const totalAppointments = realAppointments?.length || 0;
+    const completedAppointments = realAppointments?.filter((a: any) => a.status === 'COMPLETED').length || 0;
+    const completionRate = totalAppointments > 0 ? ((completedAppointments / totalAppointments) * 100).toFixed(1) : '0';
+    
+    const todayAppointments = realAppointments?.filter((a: any) => {
+      const apptDate = new Date(a.startTime);
+      const today = new Date();
+      return apptDate.toDateString() === today.toDateString();
+    }).length || 0;
+    
+    const unreadMessages = realMessages?.filter((m: any) => !m.read && m.senderId !== user?.id).length || 0;
+    const totalMessages = realMessages?.length || 0;
+    const messageHealthStatus = unreadMessages < 10 ? 'Healthy' : 'Needs attention';
+    
+    const totalDoctors = Array.from(new Set(realAppointments?.map((a: any) => a.doctor?.id).filter(Boolean))).length || 0;
+    const activeDoctorsToday = Array.from(new Set(
+      realAppointments
+        ?.filter((a: any) => {
+          const apptDate = new Date(a.startTime);
+          const today = new Date();
+          return apptDate.toDateString() === today.toDateString();
+        })
+        .map((a: any) => a.doctor?.id)
+        .filter(Boolean)
+    )).length || 0;
+    
+    // Calculate recent system events from real data
+    const systemEvents = [];
+    const now = new Date();
+    
+    if (todayAppointments > 0) {
+      systemEvents.push({
+        type: 'teal',
+        title: `${todayAppointments} appointments scheduled today`,
+        time: 'Current'
+      });
+    }
+    
+    if (activeDoctorsToday > 0) {
+      systemEvents.push({
+        type: 'mint',
+        title: `${activeDoctorsToday} doctors active today`,
+        time: 'Real-time'
+      });
+    }
+    
+    if (completedAppointments > 0) {
+      systemEvents.push({
+        type: 'teal',
+        title: `${completedAppointments} appointments completed`,
+        time: 'All-time total'
+      });
+    }
+    
+    if (totalMessages > 0) {
+      systemEvents.push({
+        type: unreadMessages > 10 ? 'gray' : 'mint',
+        title: `${unreadMessages} unread messages (${totalMessages} total)`,
+        time: messageHealthStatus
+      });
+    }
+    
+    if (realLeaves && realLeaves.length > 0) {
+      const upcomingLeaves = realLeaves.filter((l: any) => new Date(l.date) >= new Date()).length;
+      systemEvents.push({
+        type: 'gray',
+        title: `${upcomingLeaves} upcoming leave days scheduled`,
+        time: 'Planning ahead'
+      });
+    }
+    
+    return <>
+      <Heading title="System health" subtitle="Live operational metrics from CareFlow services."/>
+      <div className="metric-grid">
+        <Card className="metric-card">
+          <p className="muted">API Status</p>
+          <strong style={{fontSize:22}}>Online</strong>
+          <span><Status>Operational</Status></span>
+        </Card>
+        <Card className="metric-card">
+          <p className="muted">Appointments Today</p>
+          <strong style={{fontSize:22}}>{todayAppointments}</strong>
+          <span><Status>{todayAppointments > 0 ? 'Active' : 'Quiet'}</Status></span>
+        </Card>
+        <Card className="metric-card">
+          <p className="muted">Completion Rate</p>
+          <strong style={{fontSize:22}}>{completionRate}%</strong>
+          <span><Status tone={parseFloat(completionRate) >= 80 ? 'success' : 'neutral'}>
+            {parseFloat(completionRate) >= 80 ? 'Healthy' : 'Monitor'}
+          </Status></span>
+        </Card>
+        <Card className="metric-card">
+          <p className="muted">Total Doctors</p>
+          <strong style={{fontSize:22}}>{totalDoctors}</strong>
+          <span><Status>{activeDoctorsToday} active today</Status></span>
+        </Card>
+      </div>
+      
+      <div className="content-grid">
+        <Card>
+          <h2>System Metrics</h2>
+          <p className="muted">Real-time data from the platform</p>
+          <div className="timeline">
+            <div>
+              <span className="timeline-dot teal-dot"/>
+              <p>
+                <strong>Total Appointments</strong>
+                <small>{totalAppointments} appointments in system</small>
+              </p>
+            </div>
+            <div>
+              <span className="timeline-dot mint-dot"/>
+              <p>
+                <strong>Message Activity</strong>
+                <small>{totalMessages} messages, {unreadMessages} unread</small>
+              </p>
+            </div>
+            <div>
+              <span className="timeline-dot teal-dot"/>
+              <p>
+                <strong>Doctor Availability</strong>
+                <small>{totalDoctors} doctors, {activeDoctorsToday} active today</small>
+              </p>
+            </div>
+            <div>
+              <span className="timeline-dot mint-dot"/>
+              <p>
+                <strong>Leave Management</strong>
+                <small>{realLeaves?.length || 0} total leave days scheduled</small>
+              </p>
+            </div>
+          </div>
+        </Card>
+        
+        <Card>
+          <h2>Recent Activity</h2>
+          <p className="muted">Live system events and updates</p>
+          <div className="timeline">
+            {systemEvents.length === 0 ? (
+              <p className="muted">No recent activity</p>
+            ) : (
+              systemEvents.map((event, idx) => (
+                <div key={idx}>
+                  <span className={`timeline-dot ${event.type}-dot`}/>
+                  <p>
+                    <strong>{event.title}</strong>
+                    <small>{event.time}</small>
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
+      </div>
+    </>
+  }
+  
+  return <><Heading title="Settings" subtitle="Manage your preferences."/><Card><p>Settings view coming soon.</p></Card></>
 }
 
 export default function CareFlowApp() {
