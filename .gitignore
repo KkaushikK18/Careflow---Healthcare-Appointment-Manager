@@ -1,0 +1,19 @@
+node_modules
+dist
+.env
+.next
+.turbo
+coverage
+.cache
+.DS_Store
+build
+*.log
+mdFiles
+.prettierrc
+.npmrc
+package.json
+pnpm-lock.yaml
+pnpm-workspace.yaml
+.vscode
+.env.example
+Healthcare_Appointment_Manager (1) (2).pdf
