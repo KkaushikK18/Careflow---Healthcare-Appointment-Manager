@@ -1842,26 +1842,22 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
               ) : realLeaves?.length === 0 ? (
                 <p className="muted">No leave scheduled.</p>
               ) : isAdmin ? (
-                // Admin view: Show all doctors' leaves
-                realLeaves?.map((l: any) => {
-                  // Find doctor info from appointments
-                  const doctor = realAppointments?.find((a: any) => a.doctor?.id === l.doctorId)?.doctor;
-                  return (
-                    <div className="schedule-row" key={l.id}>
-                      <div className="schedule-time">
-                        <small>ALL DAY</small>
-                      </div>
-                      <div className="schedule-line"/>
-                      <div className="schedule-patient">
-                        <strong>{formatDate(l.date)}</strong>
-                        <span>
-                          {doctor ? `Dr. ${doctor.firstName} ${doctor.lastName}` : 'Doctor'} - Leave
-                        </span>
-                      </div>
-                      <Status tone="warning">Busy</Status>
+                // Admin view: Show all doctors' leaves with doctor info from the leave object
+                realLeaves?.map((l: any) => (
+                  <div className="schedule-row" key={l.id}>
+                    <div className="schedule-time">
+                      <small>ALL DAY</small>
                     </div>
-                  );
-                })
+                    <div className="schedule-line"/>
+                    <div className="schedule-patient">
+                      <strong>{formatDate(l.date)}</strong>
+                      <span>
+                        {l.doctor ? `Dr. ${l.doctor.firstName} ${l.doctor.lastName} (${l.doctor.specialisation})` : 'Doctor'} - Leave
+                      </span>
+                    </div>
+                    <Status tone="warning">Busy</Status>
+                  </div>
+                ))
               ) : (
                 // Doctor view: Show own leaves
                 realLeaves?.map((l: any) => (
