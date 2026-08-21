@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Activity, Bell, CalendarDays, Check, ChevronRight, Clock3, FileText, HeartPulse, LayoutDashboard, Menu, MessageCircle, MoreHorizontal, Plus, Search, Settings2, ShieldCheck, Stethoscope, Users, X } from 'lucide-react'
+import { Activity, Bell, CalendarDays, Check, ChevronRight, Clock3, FileText, HeartPulse, LayoutDashboard, Menu, MessageCircle, MoreHorizontal, Pill, Plus, Search, Settings2, ShieldCheck, Stethoscope, Users, X } from 'lucide-react'
 import { type Role } from '@/lib/mock-services'
 import { useAuth } from './auth-provider'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -26,7 +26,7 @@ import { ThemeToggle } from './theme-toggle'
 type NavItem = [string, typeof LayoutDashboard]
 const nav: Record<Role, NavItem[]> = {
   patient: [['Overview', LayoutDashboard], ['Appointments', CalendarDays], ['Find a doctor', Search], ['Medications', HeartPulse], ['Messages', MessageCircle]],
-  doctor: [['Today', LayoutDashboard], ['Appointments', CalendarDays], ['Patients', Users], ['Schedule', Clock3], ['Messages', MessageCircle]],
+  doctor: [['Today', LayoutDashboard], ['Appointments', CalendarDays], ['Patients', Users], ['Medications', HeartPulse], ['Schedule', Clock3], ['Messages', MessageCircle]],
   admin: [['Overview', LayoutDashboard], ['Appointments', CalendarDays], ['Doctors', Stethoscope], ['Leave & availability', Clock3], ['System health', ShieldCheck]],
 }
 const names = { patient: 'Maya Chen', doctor: 'Dr. Ananya Rao', admin: 'Alex Lewis' }
@@ -74,9 +74,10 @@ function PatientDashboard({ go, appointments, meds, isLoading }: { go: (label: s
   const { user } = useAuth();
   const { toast } = useToast();
   
-  // Calculate real metrics
+  // Calculate real metrics - Show upcoming appointments that are HELD or CONFIRMED
   const upcomingAppointments = appointments?.filter(a => 
-    new Date(a.startTime) > new Date() && a.status === 'CONFIRMED'
+    new Date(a.startTime) > new Date() && 
+    (a.status === 'CONFIRMED' || a.status === 'HELD')
   ).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()) || [];
   
   const nextAppointment = upcomingAppointments[0];
@@ -119,7 +120,9 @@ function PatientDashboard({ go, appointments, meds, isLoading }: { go: (label: s
               <p className="eyebrow">UP NEXT</p>
               <h2>{nextAppointment.doctor?.specialisation || 'Consultation'}</h2>
             </div>
-            <Status>Confirmed</Status>
+            <Status tone={nextAppointment.status === 'CONFIRMED' ? 'success' : 'warning'}>
+              {nextAppointment.status === 'HELD' ? 'Pending Confirmation' : 'Confirmed'}
+            </Status>
           </div>
           <div className="appointment-main">
             <div className="date-block">
@@ -478,7 +481,55 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
   const [patientsSearch, setPatientsSearch] = useState('');
   const [messagesSearch, setMessagesSearch] = useState('');
   
-  // Calculate filtered appointments at top level using useMemo
+  // Filter state - MUST come before useMemo that uses them
+  const [appointmentFilter, setAppointmentFilter] = useState<'all' | 'today' | 'upcoming' | 'completed'>('all');
+  const [adminDoctorFilter, setAdminDoctorFilter] = useState<string>('all');
+  const [adminPatientFilter, setAdminPatientFilter] = useState<string>('all');
+  const [adminStatusFilter, setAdminStatusFilter] = useState<string>('all');
+  
+  const { data: realAppointments, isLoading: appsLoading } = useQuery({
+    queryKey: ['appointments', role],
+    queryFn: () => fetchAppointments(token as string),
+    enabled: !!token
+  });
+  
+  const { data: realMeds, isLoading: medsLoading } = useQuery({
+    queryKey: ['medications', role],
+    queryFn: () => fetchMedications(token as string),
+    enabled: !!token && role === 'patient'
+  });
+  
+  const { data: adminMetrics, isLoading: adminLoading } = useQuery({
+    queryKey: ['adminMetrics', role],
+    queryFn: () => fetchAdminMetrics(token as string),
+    enabled: !!token && role === 'admin'
+  });
+
+  const { data: realMessages, isLoading: msgsLoading } = useQuery({
+    queryKey: ['messages', role],
+    queryFn: () => fetchMessages(token as string),
+    enabled: !!token
+  });
+
+  const { data: realPatients, isLoading: patientsLoading } = useQuery({
+    queryKey: ['patients', role],
+    queryFn: () => fetchPatients(token as string),
+    enabled: !!token && role === 'doctor'
+  });
+
+  const { data: realLeaves, isLoading: leavesLoading, refetch: refetchLeaves } = useQuery({
+    queryKey: ['leaves', role],
+    queryFn: () => role === 'admin' ? fetchAllLeaves(token as string) : fetchLeaves(token as string),
+    enabled: !!token && (role === 'doctor' || role === 'admin')
+  });
+
+  const { data: allDoctors, isLoading: doctorsLoading } = useQuery({
+    queryKey: ['allDoctors'],
+    queryFn: () => fetchDoctors(),
+    enabled: role === 'admin' // Only fetch for admin users
+  });
+  
+  // Calculate filtered appointments at top level using useMemo (AFTER data is loaded)
   const filteredAppointments = useMemo(() => {
     if (!realAppointments || active !== 'Appointments') return [];
     
@@ -561,59 +612,13 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
   
   const patientsPagination = usePagination(patientsList, 10);
   
-  const { data: realAppointments, isLoading: appsLoading } = useQuery({
-    queryKey: ['appointments', role],
-    queryFn: () => fetchAppointments(token as string),
-    enabled: !!token
-  });
-  
-  const { data: realMeds, isLoading: medsLoading } = useQuery({
-    queryKey: ['medications', role],
-    queryFn: () => fetchMedications(token as string),
-    enabled: !!token && role === 'patient'
-  });
-  
-  const { data: adminMetrics, isLoading: adminLoading } = useQuery({
-    queryKey: ['adminMetrics', role],
-    queryFn: () => fetchAdminMetrics(token as string),
-    enabled: !!token && role === 'admin'
-  });
-
-  const { data: realMessages, isLoading: msgsLoading } = useQuery({
-    queryKey: ['messages', role],
-    queryFn: () => fetchMessages(token as string),
-    enabled: !!token
-  });
-
-  const { data: realPatients, isLoading: patientsLoading } = useQuery({
-    queryKey: ['patients', role],
-    queryFn: () => fetchPatients(token as string),
-    enabled: !!token && role === 'doctor'
-  });
-
-  const { data: realLeaves, isLoading: leavesLoading, refetch: refetchLeaves } = useQuery({
-    queryKey: ['leaves', role],
-    queryFn: () => role === 'admin' ? fetchAllLeaves(token as string) : fetchLeaves(token as string),
-    enabled: !!token && (role === 'doctor' || role === 'admin')
-  });
-
-  const { data: allDoctors, isLoading: doctorsLoading } = useQuery({
-    queryKey: ['allDoctors'],
-    queryFn: () => fetchDoctors(),
-    enabled: role === 'admin' // Only fetch for admin users
-  });
-
+  // Other UI state
   const [showMessageModal, setShowMessageModal] = useState(false);
   const [msgContent, setMsgContent] = useState('');
   const [msgRecipient, setMsgRecipient] = useState<string>('');
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
-  const [appointmentFilter, setAppointmentFilter] = useState<'all' | 'today' | 'upcoming' | 'completed'>('all');
   const [scheduleView, setScheduleView] = useState<'list' | 'calendar'>('calendar');
   const [showAvailabilityModal, setShowAvailabilityModal] = useState(false);
-  const [adminDoctorFilter, setAdminDoctorFilter] = useState<string>('all');
-  const [adminPatientFilter, setAdminPatientFilter] = useState<string>('all');
-  const [adminStatusFilter, setAdminStatusFilter] = useState<string>('all');
-  
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [scheduleDate, setScheduleDate] = useState('');
   const [adminSelectedDoctor, setAdminSelectedDoctor] = useState('');
@@ -713,7 +718,7 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
              )}
 
              <div style={{display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap'}}>
-               {role === 'doctor' && selectedAppt.status === 'CONFIRMED' && (
+               {role === 'doctor' && (selectedAppt.status === 'CONFIRMED' || selectedAppt.status === 'HELD') && !selectedAppt.visit && (
                  <button className="primary-button" onClick={() => setShowPrescribeModal(true)}>
                    <Plus size={17}/> Complete Visit & Prescribe Medications
                  </button>
@@ -982,13 +987,39 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
         </>
       )
     }
+    
     // For doctor role, show prescriptions they've written
-    return <><Heading title="Medications" subtitle="Your active prescriptions and daily routine."/><Card><Table><thead><Row><Cell muted>MEDICATION</Cell><Cell muted>DOSAGE</Cell><Cell muted>SCHEDULE</Cell><Cell muted>STATUS</Cell></Row></thead><tbody>{medsLoading ? <Row><Cell><div style={{padding: 20}}>Loading...</div></Cell></Row> : realMeds?.length === 0 ? <Row><Cell><div style={{padding: 20}}>No medications.</div></Cell></Row> : realMeds?.map((m: any) => <Row key={m.id}><Cell><strong>{m.name}</strong></Cell><Cell muted>{m.dose}</Cell><Cell>{m.time}</Cell><Cell><Status tone={m.state === 'Taken' ? 'success' : 'warning'}>{m.state}</Status></Cell></Row>)}</tbody></Table><button className="primary-button" style={{marginTop:18}} onClick={() => {
-      toast({
-        title: 'Request Sent',
-        description: 'Medication refill request sent to your doctor'
-      })
-    }}><Plus size={17}/> Request refill</button></Card></>
+    // For now, show a message that they can prescribe medications through appointments
+    return (
+      <>
+        <Heading 
+          title="Prescriptions" 
+          subtitle="Medications you've prescribed to your patients"
+        />
+        <Card>
+          <div style={{ padding: 40, textAlign: 'center' }}>
+            <Pill size={48} style={{ color: 'var(--muted)', marginBottom: 16 }} />
+            <h3 style={{ margin: '0 0 8px', fontSize: 18 }}>Prescribe Medications</h3>
+            <p className="muted" style={{ marginBottom: 16 }}>
+              You can prescribe medications to patients after completing appointments
+            </p>
+            <p className="muted" style={{ fontSize: 14 }}>
+              1. Complete an appointment with a patient<br/>
+              2. Go to the Appointments tab<br/>
+              3. Click on the appointment and select "Complete Visit"<br/>
+              4. Fill in clinical notes and prescribe medications
+            </p>
+            <button 
+              className="primary-button" 
+              style={{ marginTop: 24 }}
+              onClick={() => go('Appointments')}
+            >
+              View Appointments
+            </button>
+          </div>
+        </Card>
+      </>
+    )
   }
   if (active === 'Messages') {
     // Get list of people user can message (based on appointments)
@@ -1402,7 +1433,7 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
             <tbody>
               {appsLoading ? (
                 <Row><Cell><div style={{padding: 20}}>Loading...</div></Cell></Row>
-              ) : pagination.currentItems.length === 0 ? (
+              ) : patientsPagination.currentItems.length === 0 ? (
                 <Row><Cell><div style={{padding: 20}}>
                   {patientsSearch ? `No patients found matching "${patientsSearch}"` : 'No patients found.'}
                 </div></Cell></Row>
