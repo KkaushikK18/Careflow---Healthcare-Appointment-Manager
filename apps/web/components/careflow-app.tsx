@@ -15,6 +15,12 @@ import { MyMedications } from './my-medications'
 import { PrescribeMedicationForm } from './prescribe-medication-form'
 import { AppointmentActionsModal } from './appointment-actions-modal'
 import { useToast } from '@/hooks/use-toast'
+import { Pagination, usePagination } from './pagination'
+import { ErrorBoundary } from './error-boundary'
+import { TableSkeleton, CardSkeleton, AppointmentSkeleton, MessageSkeleton, MetricSkeleton } from './loading-skeletons'
+import { ConfirmDialog, useConfirmDialog } from './confirm-dialog'
+import { DatePicker } from './date-picker'
+import { formatDateTime, formatDate, formatTime, formatRelativeTime, getSmartDateDisplay } from '@/lib/timezone'
 
 type NavItem = [string, typeof LayoutDashboard]
 const nav: Record<Role, NavItem[]> = {
@@ -90,7 +96,7 @@ function PatientDashboard({ go, appointments, meds, isLoading }: { go: (label: s
   
   // Format current date
   const today = new Date();
-  const formattedDate = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  const formattedDate = formatDate(today, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
   
   // Get user's first name from email (before @)
   const userName = user?.email.split('@')[0].charAt(0).toUpperCase() + user?.email.split('@')[0].slice(1);
@@ -121,7 +127,7 @@ function PatientDashboard({ go, appointments, meds, isLoading }: { go: (label: s
             </div>
             <div>
               <p className="large-meta">
-                {new Date(nextAppointment.startTime).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })} · {new Date(nextAppointment.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                {formatDate(nextAppointment.startTime, { weekday: 'long', month: 'short', day: 'numeric' })} · {formatTime(nextAppointment.startTime)}
               </p>
               <p className="muted">with Dr. {nextAppointment.doctor?.firstName} {nextAppointment.doctor?.lastName}</p>
               <p className="muted">{nextAppointment.doctor?.specialisation}</p>
@@ -196,7 +202,9 @@ function PatientDashboard({ go, appointments, meds, isLoading }: { go: (label: s
           <div><h2>Active prescriptions</h2><p className="muted">Your current medication plan</p></div>
         </div>
         {isLoading ? (
-          <p style={{ padding: 20, textAlign: 'center' }}>Loading medications...</p>
+          <div style={{ padding: 10 }}>
+            <CardSkeleton />
+          </div>
         ) : activeMedications.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 20 }}>
             <HeartPulse size={40} style={{ color: 'var(--muted)', marginBottom: 10 }} />
@@ -234,7 +242,9 @@ function PatientDashboard({ go, appointments, meds, isLoading }: { go: (label: s
         </div>
         <div className="timeline">
           {isLoading ? (
-            <p style={{ padding: 10 }}>Loading...</p>
+            <div style={{ padding: 10 }}>
+              <AppointmentSkeleton />
+            </div>
           ) : !appointments || appointments.length === 0 ? (
             <p className="muted" style={{ padding: 10 }}>No recent activity</p>
           ) : (
@@ -246,7 +256,7 @@ function PatientDashboard({ go, appointments, meds, isLoading }: { go: (label: s
                   <span className={idx % 2 === 0 ? "timeline-dot teal-dot" : "timeline-dot mint-dot"}/>
                   <p>
                     <strong>{isUpcoming ? 'Upcoming appointment' : 'Appointment completed'}</strong>
-                    <small>{apt.doctor?.specialisation || 'Consultation'} with Dr. {apt.doctor?.lastName} · {aptDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</small>
+                    <small>{apt.doctor?.specialisation || 'Consultation'} with Dr. {apt.doctor?.lastName} · {formatDate(aptDate, { month: 'short', day: 'numeric' })}</small>
                   </p>
                 </div>
               );
@@ -330,7 +340,12 @@ function DoctorDashboard({ appointments, isLoading, token, refetchLeaves, realMe
       <Modal isOpen={showLeaveModal} onClose={() => setShowLeaveModal(false)} title="Add Availability Block">
         <div style={{ marginBottom: 20 }}>
           <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>Date to block</label>
-          <input type="date" value={leaveDate} onChange={e => setLeaveDate(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--foreground)' }} />
+          <DatePicker
+            value={leaveDate}
+            onChange={setLeaveDate}
+            minDate={new Date().toISOString().split('T')[0]}
+            placeholder="Select a date"
+          />
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
           <button className="text-button" onClick={() => setShowLeaveModal(false)}>Cancel</button>
@@ -338,14 +353,14 @@ function DoctorDashboard({ appointments, isLoading, token, refetchLeaves, realMe
         </div>
       </Modal>
 
-      <Heading eyebrow={new Date().toLocaleDateString()} title={`${greeting}, Doctor`} subtitle={`You have ${todayAppointments.length} appointment${todayAppointments.length !== 1 ? 's' : ''} today.`} action={<button className="primary-button" onClick={() => setShowLeaveModal(true)}><Plus size={17}/> Add availability</button>}/>
+      <Heading eyebrow={formatDate(new Date())} title={`${greeting}, Doctor`} subtitle={`You have ${todayAppointments.length} appointment${todayAppointments.length !== 1 ? 's' : ''} today.`} action={<button className="primary-button" onClick={() => setShowLeaveModal(true)}><Plus size={17}/> Add availability</button>}/>
       <Metrics items={[
         ["Today's appointments", todayAppointments.length.toString(), ''],
         ['Awaiting notes', awaitingNotes.toString(), awaitingNotes > 0 ? 'Complete visit notes' : ''],
         ['Open slots', openSlots.toString(), 'Next 7 days'],
         ['Patient messages', unreadMessages.toString(), unreadMessages > 0 ? 'Unread' : '']
       ]}/>
-      <Card><div className="card-heading"><div><h2>Today&apos;s schedule</h2><p className="muted">{new Date().toLocaleDateString()}</p></div></div><Table><thead><Row><Cell muted>TIME</Cell><Cell muted>PATIENT</Cell><Cell muted>SYMPTOMS / AI SUMMARY</Cell><Cell muted>STATUS</Cell><Cell/></Row></thead><tbody>{isLoading ? <Row><Cell><div style={{padding: 20}}>Loading schedule...</div></Cell></Row> : todayAppointments.length === 0 ? <Row><Cell><div style={{padding: 20}}>No appointments today.</div></Cell></Row> : todayAppointments.map((a: any) => <Row key={a.id}><Cell>{new Date(a.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Cell><Cell><strong>{a.patient?.user?.name || a.patient?.firstName || 'Patient'}</strong></Cell><Cell muted>{a.preVisit ? <button className="outline-button" onClick={() => setSelectedNotes(a.preVisit.chiefComplaint)}>View AI Notes</button> : 'Routine'}</Cell><Cell><Status tone="success">{a.status}</Status></Cell><Cell><ChevronRight size={16}/></Cell></Row>)}</tbody></Table></Card>
+      <Card><div className="card-heading"><div><h2>Today&apos;s schedule</h2><p className="muted">{formatDate(new Date())}</p></div></div><Table><thead><Row><Cell muted>TIME</Cell><Cell muted>PATIENT</Cell><Cell muted>SYMPTOMS / AI SUMMARY</Cell><Cell muted>STATUS</Cell><Cell/></Row></thead><tbody>{isLoading ? <Row><Cell colSpan={5}><TableSkeleton rows={3} /></Cell></Row> : todayAppointments.length === 0 ? <Row><Cell><div style={{padding: 20}}>No appointments today.</div></Cell></Row> : todayAppointments.map((a: any) => <Row key={a.id}><Cell>{formatTime(a.startTime)}</Cell><Cell><strong>{a.patient?.user?.name || a.patient?.firstName || 'Patient'}</strong></Cell><Cell muted>{a.preVisit ? <button className="outline-button" onClick={() => setSelectedNotes(a.preVisit.chiefComplaint)}>View AI Notes</button> : 'Routine'}</Cell><Cell><Status tone="success">{a.status}</Status></Cell><Cell><ChevronRight size={16}/></Cell></Row>)}</tbody></Table></Card>
     </> 
 }
 function Metrics({ items }: { items: string[][] }) { return <div className="metric-grid">{items.map(([l,v,d]) => <Card className="metric-card" key={l}><p className="muted">{l}</p><strong>{v}</strong><span>{d}</span></Card>)}</div> }
@@ -429,7 +444,10 @@ function AdminDashboard({ metrics, isLoading }: any) {
         <p className="muted">Real-time operational metrics</p>
         <div className="timeline">
           {isLoading ? (
-            <p className="muted">Loading system status...</p>
+            <div style={{ padding: 10 }}>
+              <MetricSkeleton />
+              <MetricSkeleton />
+            </div>
           ) : systemEvents.map((event, idx) => (
             <div key={idx}>
               <span className={`timeline-dot ${event.type}-dot`}/>
@@ -451,6 +469,16 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
   const { toast } = useToast();
   const [selectedAppt, setSelectedAppt] = useState<any>(null);
   const [adminNotice, setAdminNotice] = useState('');
+  
+  // Confirmation dialog hook
+  const { confirm, dialog } = useConfirmDialog();
+  
+  // Pagination and search state
+  const [patientsSearch, setPatientsSearch] = useState('');
+  const [messagesSearch, setMessagesSearch] = useState('');
+  
+  // Pagination for appointments (initialize later after filtering)
+  const [appointmentsPaginationEnabled, setAppointmentsPaginationEnabled] = useState(false);
   
   const { data: realAppointments, isLoading: appsLoading } = useQuery({
     queryKey: ['appointments', role],
@@ -536,7 +564,7 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
           <Heading title="Appointment Details" subtitle={role === 'patient' ? `With Dr. ${selectedAppt.doctor?.firstName || ''} ${selectedAppt.doctor?.lastName || 'Unknown'}` : `With ${selectedAppt.patient?.firstName || 'Patient'} ${selectedAppt.patient?.lastName || ''}`} />
           <Card>
              <h3 style={{fontSize: 16, marginBottom: 8}}>Date & Time</h3>
-             <p className="muted" style={{marginBottom: 20}}>{new Date(selectedAppt.startTime).toLocaleString()}</p>
+             <p className="muted" style={{marginBottom: 20}}>{formatDateTime(selectedAppt.startTime)}</p>
              <h3 style={{fontSize: 16, marginBottom: 8}}>Status</h3>
              <p style={{marginBottom: 20}}><Status tone="success">{selectedAppt.status}</Status></p>
              
@@ -743,7 +771,7 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
             </thead>
             <tbody>
               {(() => {
-                if (appsLoading) return <Row><Cell><div style={{padding: 20}}>Loading...</div></Cell></Row>;
+                if (appsLoading) return <Row><Cell colSpan={5}><TableSkeleton rows={3} /></Cell></Row>;
                 
                 // Filter appointments based on role and selected filters
                 const today = new Date();
@@ -785,28 +813,51 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
                 }
                 
                 if (filteredAppointments.length === 0) {
-                  return <Row><Cell><div style={{padding: 20}}>No appointments found.</div></Cell></Row>;
+                  return <Row><Cell colSpan={5}><div style={{padding: 20}}>No appointments found.</div></Cell></Row>;
                 }
                 
-                return filteredAppointments.map((a: any) => (
-                <Row key={a.id}>
-                  <Cell>
-                    <strong>{new Date(a.startTime).toLocaleDateString()}</strong><br/>
-                    <span style={{color:'var(--muted)'}}>{new Date(a.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                  </Cell>
-                  <Cell>{a.patient?.firstName ? `${a.patient.firstName} ${a.patient.lastName}` : 'You'}</Cell>
-                  <Cell>
-                    {a.doctor?.firstName ? `Dr. ${a.doctor.firstName} ${a.doctor.lastName}` : 'You'}<br/>
-                    <span style={{color:'var(--muted)'}}>{a.doctor?.specialisation}</span>
-                  </Cell>
-                  <Cell><Status tone="success">{a.status}</Status></Cell>
-                  <Cell>
-                    <button className="icon-button" aria-label={`Open ${a.id}`} onClick={() => setSelectedAppt(a)}>
-                      <MoreHorizontal size={18}/>
-                    </button>
-                  </Cell>
-                </Row>
-              ))})()}
+                // Use pagination hook
+                const pagination = usePagination(filteredAppointments, 10);
+                const { currentItems, currentPage, totalPages, setPage, totalItems } = pagination;
+                
+                return (
+                  <>
+                    {currentItems.map((a: any) => (
+                    <Row key={a.id}>
+                      <Cell>
+                        <strong>{formatDate(a.startTime)}</strong><br/>
+                        <span style={{color:'var(--muted)'}}>{formatTime(a.startTime)}</span>
+                      </Cell>
+                      <Cell>{a.patient?.firstName ? `${a.patient.firstName} ${a.patient.lastName}` : 'You'}</Cell>
+                      <Cell>
+                        {a.doctor?.firstName ? `Dr. ${a.doctor.firstName} ${a.doctor.lastName}` : 'You'}<br/>
+                        <span style={{color:'var(--muted)'}}>{a.doctor?.specialisation}</span>
+                      </Cell>
+                      <Cell><Status tone="success">{a.status}</Status></Cell>
+                      <Cell>
+                        <button className="icon-button" aria-label={`Open ${a.id}`} onClick={() => setSelectedAppt(a)}>
+                          <MoreHorizontal size={18}/>
+                        </button>
+                      </Cell>
+                    </Row>
+                    ))}
+                    {totalPages > 1 && (
+                      <Row>
+                        <Cell colSpan={5}>
+                          <Pagination
+                            currentPage={currentPage}
+                            totalPages={totalPages}
+                            onPageChange={setPage}
+                            itemsPerPage={10}
+                            totalItems={totalItems}
+                            showItemCount={true}
+                          />
+                        </Cell>
+                      </Row>
+                    )}
+                  </>
+                );
+              })()}
             </tbody>
           </Table>
         </div>
@@ -814,7 +865,7 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
         {/* Mobile Card View */}
         <div className="responsive-table-mobile">
           {(() => {
-            if (appsLoading) return <div style={{padding: 20, textAlign: 'center'}}>Loading...</div>;
+            if (appsLoading) return <div style={{padding: 20, textAlign: 'center'}}><CardSkeleton /></div>;
             
             // Filter appointments (same logic as desktop)
             const today = new Date();
@@ -859,25 +910,44 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
               return <div style={{padding: 20, textAlign: 'center'}}>No appointments found.</div>;
             }
             
-            return filteredAppointments.map((a: any) => (
-            <div key={a.id} className="appointment-card-mobile">
-              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8}}>
-                <h4>{a.patient?.firstName ? `${a.patient.firstName} ${a.patient.lastName}` : 'You'}</h4>
-                <Status tone="success">{a.status}</Status>
-              </div>
-              <p>
-                <strong>{a.doctor?.firstName ? `Dr. ${a.doctor.firstName} ${a.doctor.lastName}` : 'You'}</strong>
-              </p>
-              <p className="muted">{a.doctor?.specialisation}</p>
-              <p style={{marginTop: 8}}>
-                <strong>{new Date(a.startTime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</strong>
-                <span className="muted"> at {new Date(a.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-              </p>
-              <button className="outline-button" onClick={() => setSelectedAppt(a)}>
-                View Details <ChevronRight size={15}/>
-              </button>
-            </div>
-          ))})()}
+            // Use pagination hook
+            const pagination = usePagination(filteredAppointments, 10);
+            const { currentItems, currentPage, totalPages, setPage, totalItems } = pagination;
+            
+            return (
+              <>
+                {currentItems.map((a: any) => (
+                <div key={a.id} className="appointment-card-mobile">
+                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8}}>
+                    <h4>{a.patient?.firstName ? `${a.patient.firstName} ${a.patient.lastName}` : 'You'}</h4>
+                    <Status tone="success">{a.status}</Status>
+                  </div>
+                  <p>
+                    <strong>{a.doctor?.firstName ? `Dr. ${a.doctor.firstName} ${a.doctor.lastName}` : 'You'}</strong>
+                  </p>
+                  <p className="muted">{a.doctor?.specialisation}</p>
+                  <p style={{marginTop: 8}}>
+                    <strong>{getSmartDateDisplay(a.startTime)}</strong>
+                    <span className="muted"> at {formatTime(a.startTime)}</span>
+                  </p>
+                  <button className="outline-button" onClick={() => setSelectedAppt(a)}>
+                    View Details <ChevronRight size={15}/>
+                  </button>
+                </div>
+                ))}
+                {totalPages > 1 && (
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                    itemsPerPage={10}
+                    totalItems={totalItems}
+                    showItemCount={true}
+                  />
+                )}
+              </>
+            );
+          })()}
         </div>
       </Card>
     </>
@@ -1043,8 +1113,10 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
 
       {msgsLoading ? (
         <Card>
-          <div style={{padding: 40, textAlign: 'center'}}>
-            <p>Loading messages...</p>
+          <div style={{padding: 20}}>
+            <MessageSkeleton />
+            <MessageSkeleton />
+            <MessageSkeleton />
           </div>
         </Card>
       ) : realMessages?.length === 0 ? (
@@ -1065,36 +1137,93 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
           {/* Conversations Sidebar */}
           <Card className="conversations-sidebar">
             <h3 style={{margin: '0 0 16px', fontSize: 16, fontWeight: 600}}>Conversations</h3>
+            
+            {/* Search Bar */}
+            <div className="search-wrapper" style={{marginBottom: 16}}>
+              <Search size={16} className="search-icon" />
+              <input
+                type="text"
+                className="search-input-with-icon"
+                placeholder="Search conversations..."
+                value={messagesSearch}
+                onChange={(e) => setMessagesSearch(e.target.value)}
+              />
+              {messagesSearch && (
+                <button 
+                  className="search-clear"
+                  onClick={() => setMessagesSearch('')}
+                  aria-label="Clear search"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+            
             <div className="conversations-list">
-              {Array.from(conversations.entries()).map(([userId, msgs]) => {
-                const contact = contactsList.find(c => c.id === userId);
-                const lastMsg = msgs[msgs.length - 1];
-                const unreadCount = msgs.filter((m: any) => !m.read && m.senderId !== user?.id).length;
+              {(() => {
+                const filteredConversations = Array.from(conversations.entries())
+                  .filter(([userId, msgs]) => {
+                    if (!messagesSearch) return true;
+                    const contact = contactsList.find(c => c.id === userId);
+                    const searchLower = messagesSearch.toLowerCase();
+                    
+                    // Search by contact name
+                    if (contact?.name.toLowerCase().includes(searchLower)) return true;
+                    
+                    // Search by message content
+                    return msgs.some((m: any) => 
+                      m.content.toLowerCase().includes(searchLower)
+                    );
+                  });
                 
-                return (
-                  <button
-                    key={userId}
-                    className={`conversation-item ${selectedConversation === userId ? 'active' : ''}`}
-                    onClick={() => setSelectedConversation(userId)}
-                  >
-                    <div className="conversation-avatar">
-                      {contact?.name.split(' ').map(n => n[0]).join('').substring(0, 2) || '??'}
+                if (filteredConversations.length === 0) {
+                  return (
+                    <div style={{padding: 20, textAlign: 'center'}}>
+                      <MessageCircle size={32} style={{color: 'var(--muted)', marginBottom: 8}}/>
+                      <p className="muted">No conversations found</p>
+                      {messagesSearch && (
+                        <button 
+                          className="text-button" 
+                          onClick={() => setMessagesSearch('')}
+                          style={{marginTop: 8}}
+                        >
+                          Clear search
+                        </button>
+                      )}
                     </div>
-                    <div className="conversation-info">
-                      <div className="conversation-header">
-                        <strong>{contact?.name || 'Unknown'}</strong>
-                        {unreadCount > 0 && <span className="unread-badge">{unreadCount}</span>}
+                  );
+                }
+                
+                return filteredConversations.map(([userId, msgs]) => {
+                  const contact = contactsList.find(c => c.id === userId);
+                  const lastMsg = msgs[msgs.length - 1];
+                  const unreadCount = msgs.filter((m: any) => !m.read && m.senderId !== user?.id).length;
+                  
+                  return (
+                    <button
+                      key={userId}
+                      className={`conversation-item ${selectedConversation === userId ? 'active' : ''}`}
+                      onClick={() => setSelectedConversation(userId)}
+                    >
+                      <div className="conversation-avatar">
+                        {contact?.name.split(' ').map(n => n[0]).join('').substring(0, 2) || '??'}
                       </div>
-                      <p className="conversation-preview">
-                        {lastMsg.content.substring(0, 50)}{lastMsg.content.length > 50 ? '...' : ''}
-                      </p>
-                      <span className="conversation-time">
-                        {new Date(lastMsg.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
+                      <div className="conversation-info">
+                        <div className="conversation-header">
+                          <strong>{contact?.name || 'Unknown'}</strong>
+                          {unreadCount > 0 && <span className="unread-badge">{unreadCount}</span>}
+                        </div>
+                        <p className="conversation-preview">
+                          {lastMsg.content.substring(0, 50)}{lastMsg.content.length > 50 ? '...' : ''}
+                        </p>
+                        <span className="conversation-time">
+                          {formatRelativeTime(lastMsg.createdAt)}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                });
+              })()}
             </div>
           </Card>
 
@@ -1121,20 +1250,13 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
                       <div key={msg.id}>
                         {showDate && (
                           <div className="message-date-divider">
-                            {new Date(msg.createdAt).toLocaleDateString('en-US', { 
-                              weekday: 'long', 
-                              month: 'long', 
-                              day: 'numeric' 
-                            })}
+                            {formatDate(msg.createdAt, { weekday: 'long', month: 'long', day: 'numeric' })}
                           </div>
                         )}
                         <div className={`message-bubble ${isOwn ? 'own' : 'other'}`}>
                           <div className="message-content">{msg.content}</div>
                           <div className="message-meta">
-                            {new Date(msg.createdAt).toLocaleTimeString('en-US', { 
-                              hour: 'numeric', 
-                              minute: '2-digit' 
-                            })}
+                            {formatTime(msg.createdAt)}
                             {isOwn && !msg.read && <span className="message-status"> · Sent</span>}
                             {isOwn && msg.read && <span className="message-status"> · Read</span>}
                           </div>
@@ -1224,12 +1346,41 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
       }
     });
     
-    const patientsList = Array.from(patientMap.values()).sort((a, b) => 
+    let patientsList = Array.from(patientMap.values()).sort((a, b) => 
       new Date(b.lastVisit).getTime() - new Date(a.lastVisit).getTime()
     );
     
+    // Apply search filter
+    if (patientsSearch) {
+      patientsList = patientsList.filter(p => 
+        p.name.toLowerCase().includes(patientsSearch.toLowerCase()) ||
+        p.email.toLowerCase().includes(patientsSearch.toLowerCase())
+      );
+    }
+    
+    // Pagination
+    const pagination = usePagination(patientsList, 10);
+    
     return <>
       <Heading title="Patients" subtitle="Your active patient panel and visit history."/>
+      
+      {/* Search Bar */}
+      <div className="search-wrapper" style={{marginBottom: 20}}>
+        <Search className="search-icon" size={18} />
+        <input
+          type="text"
+          placeholder="Search patients by name or email..."
+          value={patientsSearch}
+          onChange={(e) => setPatientsSearch(e.target.value)}
+          className="search-input search-input-with-icon"
+        />
+        {patientsSearch && (
+          <button className="search-clear" onClick={() => setPatientsSearch('')}>
+            <X size={16} />
+          </button>
+        )}
+      </div>
+      
       <Card>
         {/* Desktop Table */}
         <div className="responsive-table-desktop">
@@ -1245,9 +1396,11 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
             <tbody>
               {appsLoading ? (
                 <Row><Cell><div style={{padding: 20}}>Loading...</div></Cell></Row>
-              ) : patientsList.length === 0 ? (
-                <Row><Cell><div style={{padding: 20}}>No patients found.</div></Cell></Row>
-              ) : patientsList.map((p: any) => {
+              ) : pagination.currentItems.length === 0 ? (
+                <Row><Cell><div style={{padding: 20}}>
+                  {patientsSearch ? `No patients found matching "${patientsSearch}"` : 'No patients found.'}
+                </div></Cell></Row>
+              ) : pagination.currentItems.map((p: any) => {
                 const lastVisitDate = new Date(p.lastVisit);
                 const daysSinceVisit = Math.floor((Date.now() - lastVisitDate.getTime()) / (1000 * 60 * 60 * 24));
                 const initials = p.name.split(' ').map((x: string) => x[0]).join('');
@@ -1265,7 +1418,7 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
                       </div>
                     </Cell>
                     <Cell muted>
-                      {lastVisitDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {formatDate(lastVisitDate, { month: 'short', day: 'numeric', year: 'numeric' })}
                       <br/>
                       <span style={{fontSize: 11}}>({daysSinceVisit} days ago)</span>
                     </Cell>
@@ -1313,7 +1466,7 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
                   </div>
                 </div>
                 <p>
-                  <strong>Last Visit:</strong> {lastVisitDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ({daysSinceVisit} days ago)
+                  <strong>Last Visit:</strong> {formatDate(lastVisitDate, { month: 'short', day: 'numeric', year: 'numeric' })} ({daysSinceVisit} days ago)
                 </p>
                 <p>
                   <strong>Status:</strong> <Status tone={p.lastStatus === 'COMPLETED' ? 'success' : 'warning'}>{p.lastStatus}</Status>
@@ -1325,6 +1478,17 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
             );
           })}
         </div>
+        
+        {/* Pagination */}
+        {pagination.totalPages > 1 && (
+          <Pagination
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            onPageChange={pagination.setPage}
+            totalItems={pagination.totalItems}
+            itemsPerPage={10}
+          />
+        )}
       </Card>
     </>
   }
@@ -1376,29 +1540,51 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
       <Modal isOpen={showScheduleModal} onClose={() => setShowScheduleModal(false)} title="Add Availability Block">
         <div style={{ marginBottom: 20 }}>
           <label style={{ display: 'block', marginBottom: 8, fontWeight: 500 }}>Date to block</label>
-          <input type="date" value={scheduleDate} onChange={e => setScheduleDate(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--foreground)' }} />
+          <DatePicker
+            value={scheduleDate}
+            onChange={setScheduleDate}
+            minDate={new Date().toISOString().split('T')[0]}
+            placeholder="Select a date"
+          />
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
           <button className="text-button" onClick={() => setShowScheduleModal(false)}>Cancel</button>
           <button className="primary-button" onClick={async () => {
-             if (scheduleDate) {
-               try {
-                 await addLeave(token as string, scheduleDate);
-                 setShowScheduleModal(false);
-                 setScheduleDate('');
-                 refetchLeaves();
-                 toast({
-                   title: 'Success',
-                   description: 'Leave/availability block added successfully'
-                 });
-               } catch (error: any) {
-                 console.error('Error adding leave:', error);
-                 toast({
-                   title: 'Error',
-                   description: error.message || 'Failed to add leave',
-                   variant: 'destructive'
-                 });
-               }
+             if (!scheduleDate) {
+               toast({
+                 title: 'Validation Error',
+                 description: 'Please select a date',
+                 variant: 'destructive'
+               });
+               return;
+             }
+             
+             const confirmed = await confirm({
+               title: 'Block Availability',
+               message: `Are you sure you want to block ${formatDate(scheduleDate, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}? You won't be able to accept appointments on this date.`,
+               confirmText: 'Confirm Block',
+               cancelText: 'Cancel',
+               variant: 'warning'
+             });
+             
+             if (!confirmed) return;
+             
+             try {
+               await addLeave(token as string, scheduleDate);
+               setShowScheduleModal(false);
+               setScheduleDate('');
+               refetchLeaves();
+               toast({
+                 title: 'Success',
+                 description: 'Leave/availability block added successfully'
+               });
+             } catch (error: any) {
+               console.error('Error adding leave:', error);
+               toast({
+                 title: 'Error',
+                 description: error.message || 'Failed to add leave',
+                 variant: 'destructive'
+               });
              }
           }}>Confirm Block</button>
         </div>
@@ -1510,10 +1696,10 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
         <Card>
           <div className="calendar-header">
             <h3 style={{margin: 0, fontSize: 18}}>
-              {currentWeekStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              {formatDate(currentWeekStart, { month: 'long', year: 'numeric' })}
             </h3>
             <p className="muted" style={{margin: '4px 0 0', fontSize: 13}}>
-              Week of {currentWeekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              Week of {formatDate(currentWeekStart, { month: 'short', day: 'numeric' })}
             </p>
           </div>
 
@@ -1526,7 +1712,7 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
               return (
                 <div key={idx} className={`calendar-day ${isToday ? 'today' : ''} ${isLeave ? 'has-leave' : ''}`}>
                   <div className="calendar-day-header">
-                    <span className="calendar-day-name">{date.toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                    <span className="calendar-day-name">{formatDate(date, { weekday: 'short' })}</span>
                     <span className="calendar-day-number">{date.getDate()}</span>
                   </div>
                   
@@ -1539,7 +1725,7 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
                       dayAppointments.map((apt: any) => (
                         <div key={apt.id} className="calendar-event appointment-event" onClick={() => setSelectedAppt(apt)}>
                           <div className="event-time">
-                            {new Date(apt.startTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                            {formatTime(apt.startTime)}
                           </div>
                           <div className="event-title">
                             {apt.patient?.firstName} {apt.patient?.lastName}
@@ -1594,7 +1780,7 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
                       </div>
                       <div className="schedule-line"/>
                       <div className="schedule-patient">
-                        <strong>{new Date(l.date).toLocaleDateString()}</strong>
+                        <strong>{formatDate(l.date)}</strong>
                         <span>
                           {doctor ? `Dr. ${doctor.firstName} ${doctor.lastName}` : 'Doctor'} - Leave
                         </span>
@@ -1612,7 +1798,7 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
                     </div>
                     <div className="schedule-line"/>
                     <div className="schedule-patient">
-                      <strong>{new Date(l.date).toLocaleDateString()}</strong>
+                      <strong>{formatDate(l.date)}</strong>
                       <span>Blocked - Leave</span>
                     </div>
                     <Status tone="warning">Busy</Status>
@@ -1827,10 +2013,15 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
     </>
   }
   
-  return <><Heading title="Settings" subtitle="Manage your preferences."/><Card><p>Settings view coming soon.</p></Card></>
+  return (
+    <>
+      {dialog}
+      <><Heading title="Settings" subtitle="Manage your preferences."/><Card><p>Settings view coming soon.</p></Card></>
+    </>
+  )
 }
 
-export default function CareFlowApp() {
+function CareFlowApp() {
   const { user, logout } = useAuth();
   const [active, setActive] = useState('Overview'); 
   const [mobileOpen, setMobileOpen] = useState(false); 
@@ -1851,4 +2042,13 @@ export default function CareFlowApp() {
   }
   
   return <div className="app-shell"><aside className={mobileOpen ? 'sidebar open' : 'sidebar'}><div className="brand"><span className="brand-mark"><HeartPulse size={18}/></span><span>Care<span>Flow</span></span><button className="close-mobile" onClick={() => setMobileOpen(false)}><X size={18}/></button></div><div className="role-switcher" style={{padding: "10px 15px", borderBottom: "1px solid var(--border)", display: 'flex', justifyContent: 'space-between'}}><span>Workspace Role</span><strong>{role.toUpperCase()}</strong></div><nav>{currentNav.map(([label, Icon]) => <button className={active === label ? 'nav-item active' : 'nav-item'} key={label} onClick={() => go(label)}><Icon size={17}/><span>{label}</span></button>)}</nav><div className="sidebar-bottom"><button className={`nav-item ${active === 'Settings' ? 'active' : ''}`} onClick={() => go('Settings')}><Settings2 size={17}/><span>Settings</span></button><div className="profile-chip" style={{cursor: 'pointer'}} onClick={logout}><Avatar initials={initials}/><span><strong>{user?.email}</strong><small>{roles[role]}</small></span><MoreHorizontal size={16}/></div></div></aside><div className="main-area"><header className="topbar"><button className="mobile-menu" onClick={() => setMobileOpen(true)} aria-label="Open navigation"><Menu size={20}/></button><div className="breadcrumb"><span>Workspace</span><ChevronRight size={14}/><strong>{active}</strong></div><div className="top-actions"><button className="icon-button notification" aria-label="Notifications" onClick={() => setNotice('No new notifications')}><Bell size={18}/><span/></button><div className="top-avatar" onClick={logout} style={{cursor: 'pointer'}}>{initials}</div></div></header><main className="content">{active === 'Settings' ? <SettingsView setNotice={setNotice} /> : <RecordsView role={role} active={active} go={go}/>} </main></div>{notice && <button className="toast" onClick={() => setNotice('')}><Bell size={16}/> {notice}<X size={15}/></button>}</div>
+}
+
+// Wrap with ErrorBoundary for production resilience
+export default function CareFlowAppWithErrorBoundary() {
+  return (
+    <ErrorBoundary>
+      <CareFlowApp />
+    </ErrorBoundary>
+  )
 }

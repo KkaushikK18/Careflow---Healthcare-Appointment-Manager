@@ -1367,3 +1367,487 @@ button:disabled {
   margin-bottom: 4px;
   color: var(--foreground);
 }
+
+/* Error Boundary */
+.error-boundary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 40px;
+  background: var(--background);
+}
+
+.error-boundary-content {
+  max-width: 500px;
+  text-align: center;
+}
+
+.error-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 24px;
+  border-radius: 50%;
+  background: #fae4e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--coral);
+}
+
+.error-boundary h2 {
+  margin: 0 0 12px;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.error-message {
+  color: var(--muted);
+  margin: 0 0 24px;
+  line-height: 1.6;
+}
+
+.error-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.error-details {
+  margin-top: 32px;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.error-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+.error-details pre {
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-x: auto;
+  color: var(--coral);
+  margin: 0;
+}
+
+/* Loading Skeletons */
+.skeleton-container {
+  pointer-events: none;
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--background) 0%,
+    var(--mint) 50%,
+    var(--background) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeletonLoading 1.5s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+.skeleton-title {
+  height: 24px;
+  margin-bottom: 12px;
+}
+
+.skeleton-text {
+  height: 16px;
+  margin-bottom: 8px;
+}
+
+@keyframes skeletonLoading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Confirm Dialog */
+.confirm-dialog {
+  background: var(--card);
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 20px 50px rgba(23, 36, 39, 0.3);
+  animation: modalFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: center;
+}
+
+.confirm-dialog-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirm-dialog-danger .confirm-dialog-icon {
+  background: #fae4e1;
+}
+
+.confirm-dialog-warning .confirm-dialog-icon {
+  background: #f8ecd9;
+}
+
+.confirm-dialog-info .confirm-dialog-icon {
+  background: var(--mint);
+}
+
+.confirm-dialog-title {
+  margin: 0 0 12px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.confirm-dialog-message {
+  margin: 0 0 24px;
+  color: var(--muted);
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.confirm-dialog-actions button {
+  flex: 1;
+}
+
+.danger-button {
+  background: var(--coral);
+  color: white;
+  border: 1px solid var(--coral);
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.danger-button:hover:not(:disabled) {
+  background: #b44a42;
+  transform: translateY(-1px);
+}
+
+.danger-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Date Picker */
+.date-picker-wrapper {
+  position: relative;
+}
+
+.date-picker-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--foreground);
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 100%;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.date-picker-trigger:hover:not(:disabled) {
+  border-color: var(--primary);
+}
+
+.date-picker-trigger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.date-picker-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.date-picker-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 50;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(23, 36, 39, 0.15);
+  padding: 16px;
+  min-width: 280px;
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+.date-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.date-picker-month {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.date-picker-nav {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.date-picker-nav:hover {
+  background: var(--mint);
+  color: var(--primary);
+}
+
+.date-picker-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.date-picker-weekday {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 4px;
+}
+
+.date-picker-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.date-picker-day {
+  aspect-ratio: 1;
+  border: 0;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--foreground);
+}
+
+.date-picker-day.empty {
+  cursor: default;
+  pointer-events: none;
+}
+
+.date-picker-day:not(.empty):hover:not(:disabled) {
+  background: var(--mint);
+  color: var(--primary);
+}
+
+.date-picker-day.selected {
+  background: var(--primary);
+  color: white;
+  font-weight: 600;
+}
+
+.date-picker-day.today {
+  border: 1px solid var(--primary);
+}
+
+.date-picker-day:disabled {
+  color: var(--muted);
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 0;
+  flex-wrap: wrap;
+}
+
+.pagination-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.pagination-count {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pagination-button {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--foreground);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pagination-button:hover:not(:disabled):not(.active) {
+  background: var(--mint);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.pagination-button.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
+.pagination-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pagination-numbers {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pagination-ellipsis {
+  padding: 0 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Responsive Pagination */
+@media (max-width: 680px) {
+  .pagination {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .pagination-controls {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .pagination-numbers {
+    display: none;
+  }
+}
+
+/* Search Input Enhancement */
+.search-wrapper {
+  position: relative;
+  flex: 1;
+  min-width: 250px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.search-input-with-icon {
+  padding-left: 40px;
+}
+
+.search-clear {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.search-clear:hover {
+  color: var(--foreground);
+}
+
+/* Utility Classes */
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
