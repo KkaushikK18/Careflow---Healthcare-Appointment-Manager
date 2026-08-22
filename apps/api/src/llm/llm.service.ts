@@ -28,9 +28,18 @@ export class GeminiProvider implements ILLMProvider {
 
   constructor(private configService: ConfigService) {
     const apiKey = this.configService.get<string>('geminiApiKey');
+    this.logger.log(`Initializing Gemini with API key: ${apiKey ? `${apiKey.substring(0, 10)}...` : 'NOT SET'}`);
+    
     if (apiKey && apiKey !== 'your-gemini-api-key') {
-      const { GoogleGenerativeAI } = require('@google/generative-ai');
-      this.ai = new GoogleGenerativeAI(apiKey);
+      try {
+        const { GoogleGenerativeAI } = require('@google/generative-ai');
+        this.ai = new GoogleGenerativeAI(apiKey);
+        this.logger.log('Gemini AI initialized successfully');
+      } catch (error) {
+        this.logger.error('Failed to initialize Gemini AI:', error);
+      }
+    } else {
+      this.logger.warn('Gemini API key not configured or set to placeholder value');
     }
   }
 
@@ -45,7 +54,7 @@ export class GeminiProvider implements ILLMProvider {
     }
 
     try {
-      const model = this.ai.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const model = this.ai.getGenerativeModel({ model: 'gemini-2.5-flash' });
       const prompt = `
         Analyze these symptoms: "${symptoms}".
         Return a JSON object matching this schema exactly without markdown formatting:
@@ -59,10 +68,11 @@ export class GeminiProvider implements ILLMProvider {
       const response = await result.response;
       const text = response.text();
       // Simple JSON extraction
-      const jsonStr = text.replace(/```json/g, '').replace(/```/g, '');
+      const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      this.logger.log(`Gemini pre-visit analysis complete for symptoms: ${symptoms.substring(0, 50)}...`);
       return JSON.parse(jsonStr) as PreVisitOutput;
     } catch (e) {
-      this.logger.error('LLM Failure', e);
+      this.logger.error(`LLM Failure for pre-visit summary: ${e.message}`, e.stack);
       throw new Error('LLM_PROCESSING_FAILED');
     }
   }
@@ -79,7 +89,7 @@ export class GeminiProvider implements ILLMProvider {
     }
 
     try {
-      const model = this.ai.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const model = this.ai.getGenerativeModel({ model: 'gemini-2.5-flash' });
       const prompt = `
         Convert these clinical notes into a patient-friendly summary: "${notes}".
         Medications: ${JSON.stringify(prescriptionDetails)}
@@ -93,10 +103,11 @@ export class GeminiProvider implements ILLMProvider {
       `;
       const result = await model.generateContent(prompt);
       const response = await result.response;
-      const jsonStr = response.text().replace(/```json/g, '').replace(/```/g, '');
+      const jsonStr = response.text().replace(/```json/g, '').replace(/```/g, '').trim();
+      this.logger.log(`Gemini post-visit summary generated successfully`);
       return JSON.parse(jsonStr) as PostVisitOutput;
     } catch (e) {
-      this.logger.error('LLM Failure', e);
+      this.logger.error(`LLM Failure for post-visit summary: ${e.message}`, e.stack);
       throw new Error('LLM_PROCESSING_FAILED');
     }
   }

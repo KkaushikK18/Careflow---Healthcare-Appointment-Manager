@@ -685,7 +685,44 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
                <>
                  <h3 style={{fontSize: 16, marginBottom: 8}}>AI Clinical Summary</h3>
                  <div style={{background: 'var(--background)', padding: 15, borderRadius: 8, marginTop: 10, border: '1px solid var(--border)'}}>
-                   <p style={{whiteSpace: 'pre-wrap', lineHeight: 1.6}}>{selectedAppt.preVisit.chiefComplaint}</p>
+                   {/* Urgency Badge */}
+                   {selectedAppt.preVisit.urgencyLevel && (
+                     <div style={{marginBottom: 12}}>
+                       <span style={{
+                         display: 'inline-block',
+                         padding: '4px 12px',
+                         borderRadius: 6,
+                         fontSize: 12,
+                         fontWeight: 600,
+                         background: selectedAppt.preVisit.urgencyLevel === 'HIGH' ? '#fee' : 
+                                    selectedAppt.preVisit.urgencyLevel === 'MEDIUM' ? '#fef3e7' : '#e7f5ff',
+                         color: selectedAppt.preVisit.urgencyLevel === 'HIGH' ? '#c00' : 
+                               selectedAppt.preVisit.urgencyLevel === 'MEDIUM' ? '#d68000' : '#0066cc'
+                       }}>
+                         {selectedAppt.preVisit.urgencyLevel === 'HIGH' ? '🔴 HIGH URGENCY' :
+                          selectedAppt.preVisit.urgencyLevel === 'MEDIUM' ? '🟡 MEDIUM URGENCY' : '🟢 LOW URGENCY'}
+                       </span>
+                     </div>
+                   )}
+                   
+                   {/* Chief Complaint */}
+                   <p style={{marginBottom: 16, lineHeight: 1.6, fontWeight: 500}}>
+                     {selectedAppt.preVisit.chiefComplaint}
+                   </p>
+                   
+                   {/* Suggested Questions */}
+                   {selectedAppt.preVisit.questions && selectedAppt.preVisit.questions.length > 0 && (
+                     <>
+                       <h4 style={{fontSize: 14, marginBottom: 8, marginTop: 16, color: 'var(--muted)'}}>
+                         💡 Suggested Questions:
+                       </h4>
+                       <ul style={{marginLeft: 20, lineHeight: 1.8, color: 'var(--foreground)'}}>
+                         {selectedAppt.preVisit.questions.map((q: string, i: number) => (
+                           <li key={i} style={{marginBottom: 6}}>{q}</li>
+                         ))}
+                       </ul>
+                     </>
+                   )}
                  </div>
                </>
              )}

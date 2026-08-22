@@ -27,7 +27,7 @@ export class AppointmentsService {
     }
 
     try {
-      const appointment = await this.prisma.$transaction(async (tx) => {
+      const result = await this.prisma.$transaction(async (tx) => {
         const appt = await tx.appointment.create({
           data: {
             doctorId: data.doctorId,
@@ -57,55 +57,53 @@ export class AppointmentsService {
             }
           });
 
-          const llmEvent = await tx.outboxEvent.create({
+          await tx.outboxEvent.create({
             data: {
               type: 'LLM_PRE_VISIT',
               payload: { appointmentId: appt.id, symptoms: data.symptoms }
             }
           });
-
-          // Enqueue LLM processing job
-          await this.outboxQueue.add('process-outbox', {
-            eventId: llmEvent.id,
-            type: 'LLM_PRE_VISIT',
-            payload: { appointmentId: appt.id, symptoms: data.symptoms }
-          });
         }
 
         // Create calendar sync event
-        const calendarEvent = await tx.outboxEvent.create({
+        await tx.outboxEvent.create({
           data: {
             type: 'CALENDAR_SYNC',
             payload: { appointmentId: appt.id }
           }
         });
 
-        // Enqueue calendar sync job
-        await this.outboxQueue.add('process-outbox', {
-          eventId: calendarEvent.id,
-          type: 'CALENDAR_SYNC',
-          payload: { appointmentId: appt.id }
-        });
-
         // Create email confirmation event
-        const emailEvent = await tx.outboxEvent.create({
+        await tx.outboxEvent.create({
           data: {
             type: 'EMAIL_BOOKING_CONFIRMATION',
             payload: { appointmentId: appt.id }
           }
         });
-
-        // Enqueue email job
-        await this.outboxQueue.add('process-outbox', {
-          eventId: emailEvent.id,
-          type: 'EMAIL_BOOKING_CONFIRMATION',
-          payload: { appointmentId: appt.id }
-        });
         
         return appt;
       });
 
-      return appointment;
+      // AFTER transaction commits, enqueue jobs
+      const events = await this.prisma.outboxEvent.findMany({
+        where: {
+          payload: {
+            path: ['appointmentId'],
+            equals: result.id
+          },
+          status: 'PENDING'
+        }
+      });
+
+      for (const event of events) {
+        await this.outboxQueue.add('process-outbox', {
+          eventId: event.id,
+          type: event.type,
+          payload: event.payload
+        });
+      }
+
+      return result;
     } catch (error: any) {
       if (error.code === 'P2002') {
         throw new ConflictException('This slot is already booked for this doctor.');

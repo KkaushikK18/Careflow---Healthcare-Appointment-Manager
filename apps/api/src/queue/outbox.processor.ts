@@ -20,13 +20,24 @@ export class OutboxProcessor extends WorkerHost {
   }
 
   async process(job: Job<any, any, string>): Promise<any> {
-    this.logger.log(`Processing outbox event: ${job.id}`);
-    
     const { eventId, type, payload } = job.data;
-
-    // Check if event is already processed
+    this.logger.log(`Processing outbox event: ${eventId} | Type: ${type}`);
+    
+    // Check if event exists and get current status
     const event = await this.prisma.outboxEvent.findUnique({ where: { id: eventId } });
-    if (!event || event.status === 'COMPLETED') {
+    
+    if (!event) {
+      this.logger.warn(`Event ${eventId} not found in database`);
+      return;
+    }
+    
+    if (event.status === 'COMPLETED') {
+      this.logger.log(`Event ${eventId} already completed`);
+      return;
+    }
+    
+    if (event.status === 'PROCESSING') {
+      this.logger.log(`Event ${eventId} already being processed by another worker`);
       return;
     }
 
@@ -38,7 +49,9 @@ export class OutboxProcessor extends WorkerHost {
 
       // Handle based on type
       if (type === 'LLM_PRE_VISIT') {
+        this.logger.log(`Starting LLM pre-visit analysis for appointment: ${payload.appointmentId}`);
         const result = await this.llmService.getProvider().generatePreVisitSummary(payload.symptoms);
+        this.logger.log(`LLM analysis result: ${JSON.stringify(result)}`);
         
         await this.prisma.$transaction(async (tx: any) => {
           await tx.preVisitSummary.update({
@@ -52,6 +65,7 @@ export class OutboxProcessor extends WorkerHost {
           });
           await tx.outboxEvent.update({ where: { id: eventId }, data: { status: 'COMPLETED' }});
         });
+        this.logger.log(`LLM pre-visit summary updated successfully`);
       } else if (type === 'CALENDAR_SYNC') {
         // Sync appointment to calendars
         await this.calendarService.syncAppointmentToCalendars(payload.appointmentId);
