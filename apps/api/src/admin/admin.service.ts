@@ -267,7 +267,8 @@ export class AdminService {
               notIn: ['CANCELLED', 'NO_SHOW']
             }
           }
-        }
+        },
+        user: true
       }
     });
 
@@ -283,19 +284,30 @@ export class AdminService {
       );
     }
 
-    // Delete doctor profile and user account in transaction
+    // Soft delete: Mark doctor as inactive instead of deleting
+    // This preserves historical appointment data and medical records
     return this.prisma.$transaction(async (tx) => {
-      // Delete doctor profile (cascade will handle leaves)
-      await tx.doctorProfile.delete({
-        where: { id: doctorId }
+      // Mark doctor profile as inactive by clearing working days
+      // This prevents new appointments from being booked
+      await tx.doctorProfile.update({
+        where: { id: doctorId },
+        data: {
+          workingDays: [], // No working days = no slots available
+        }
       });
 
-      // Delete user account
-      await tx.user.delete({
-        where: { id: doctor.userId }
+      // Deactivate user account by modifying email to prevent login
+      await tx.user.update({
+        where: { id: doctor.userId },
+        data: {
+          email: `deleted_${doctor.user.email}_${Date.now()}`,
+        }
       });
 
-      return { success: true, message: 'Doctor deleted successfully' };
+      return { 
+        success: true, 
+        message: 'Doctor account deactivated successfully. Past appointments and records are preserved.' 
+      };
     });
   }
 

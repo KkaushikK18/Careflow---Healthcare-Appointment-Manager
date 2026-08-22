@@ -19,14 +19,33 @@ export class CalendarController {
   /**
    * Initiate OAuth flow - redirect user to Google consent screen
    * GET /calendar/connect
+   * Special handling: Token can be in header OR query param (for redirect compatibility)
    */
-  @UseGuards(AuthGuard)
   @Get('connect')
-  async connect(@Req() req: any, @Res() res: any) {
-    const userId = req.user.sub;
+  async connect(@Req() req: any, @Query('token') tokenFromQuery: string, @Res() res: any) {
+    // Try to get userId from authenticated request first
+    let userId = req.user?.sub;
+
+    // If no authenticated user, try to decode token from query param
+    if (!userId && tokenFromQuery) {
+      try {
+        // Import jwt to decode
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(tokenFromQuery, process.env.AUTH_SECRET || 'careflow-secret-key-production-ready-2026-auth-token-12345');
+        userId = decoded.sub;
+      } catch (error) {
+        throw new BadRequestException('Invalid authentication token');
+      }
+    }
+
+    if (!userId) {
+      throw new BadRequestException('Authentication required');
+    }
+
     const authUrl = this.calendarService.getAuthUrl(userId);
     
-    return res.redirect(302, authUrl);
+    // Fastify redirect syntax
+    return res.status(302).redirect(authUrl);
   }
 
   /**
@@ -52,10 +71,10 @@ export class CalendarController {
       
       // Redirect to frontend success page
       const frontendUrl = process.env.NEXT_PUBLIC_API_URL?.replace(':3001', ':3000') || 'http://localhost:3000';
-      return res.redirect(302, `${frontendUrl}?calendar=connected`);
+      return res.status(302).redirect(`${frontendUrl}/app?calendar=connected`);
     } catch (error: any) {
       const frontendUrl = process.env.NEXT_PUBLIC_API_URL?.replace(':3001', ':3000') || 'http://localhost:3000';
-      return res.redirect(302, `${frontendUrl}?calendar=error&message=${encodeURIComponent(error.message)}`);
+      return res.status(302).redirect(`${frontendUrl}/app?calendar=error&message=${encodeURIComponent(error.message)}`);
     }
   }
 
@@ -83,5 +102,16 @@ export class CalendarController {
 
     await this.calendarService.syncAppointmentToCalendars(appointmentId);
     return { message: 'Calendar sync initiated' };
+  }
+
+  /**
+   * Sync medication reminders to calendar
+   * POST /calendar/sync-medications
+   */
+  @UseGuards(AuthGuard)
+  @Post('sync-medications')
+  async syncMedications(@Req() req: any) {
+    await this.calendarService.syncMedicationReminders(req.user.sub);
+    return { message: 'Medication reminders synced to calendar' };
   }
 }

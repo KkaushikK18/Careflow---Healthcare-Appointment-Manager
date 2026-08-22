@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { LlmService } from '../llm/llm.service';
+import { CalendarService } from '../calendar/calendar.service';
 
 interface MedicationDto {
   name: string;
@@ -21,10 +22,13 @@ interface CreatePrescriptionDto {
 
 @Injectable()
 export class PrescriptionsService {
+  private readonly logger = new Logger(PrescriptionsService.name);
+
   constructor(
     private prisma: PrismaService,
     @InjectQueue('outbox') private outboxQueue: Queue,
     private llmService: LlmService,
+    private calendarService: CalendarService,
   ) {}
 
   /**
@@ -122,6 +126,15 @@ export class PrescriptionsService {
       maxWait: 10000, // Maximum time to wait to start transaction (10 seconds)
       timeout: 30000, // Maximum time for transaction to complete (30 seconds)
     });
+
+    // After transaction completes successfully, sync medication reminders to patient's calendar
+    try {
+      await this.calendarService.syncMedicationReminders(appointment.patient.userId);
+      this.logger.log(`Medication reminders synced to calendar for patient ${appointment.patient.userId}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to sync medication reminders to calendar: ${error.message}`);
+      // Don't fail the prescription creation if calendar sync fails
+    }
 
     return result.prescription;
   }

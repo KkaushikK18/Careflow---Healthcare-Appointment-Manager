@@ -429,4 +429,161 @@ export class CalendarService {
       await this.createAppointmentEvent(appointmentId, appointment.patient.userId);
     }
   }
+
+  /**
+   * Create calendar event for medication reminder
+   */
+  async createMedicationReminderEvent(
+    medicationId: string,
+    reminderTime: Date,
+    userId: string,
+  ): Promise<string | null> {
+    try {
+      const medication = await this.prisma.prescriptionMedication.findUnique({
+        where: { id: medicationId },
+        include: {
+          prescription: {
+            include: {
+              visit: {
+                include: {
+                  appointment: {
+                    include: {
+                      doctor: {
+                        include: { user: true },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!medication) {
+        throw new BadRequestException('Medication not found');
+      }
+
+      const client = await this.getAuthenticatedClient(userId);
+      const calendar = google.calendar({ version: 'v3', auth: client });
+
+      const doctorName = `Dr. ${medication.prescription.visit.appointment.doctor.firstName} ${medication.prescription.visit.appointment.doctor.lastName}`;
+
+      const summary = `💊 Medication Reminder: ${medication.name}`;
+      const description = 
+        `Take your medication: ${medication.name}\n` +
+        `Dose: ${medication.dose}\n` +
+        `Frequency: ${medication.frequency}\n` +
+        `Duration: ${medication.duration}\n` +
+        `Prescribed by: ${doctorName}`;
+
+      // Calculate end time (30 minutes after reminder)
+      const endTime = new Date(reminderTime);
+      endTime.setMinutes(endTime.getMinutes() + 30);
+
+      const event = {
+        summary,
+        description,
+        start: {
+          dateTime: reminderTime.toISOString(),
+          timeZone: 'UTC',
+        },
+        end: {
+          dateTime: endTime.toISOString(),
+          timeZone: 'UTC',
+        },
+        reminders: {
+          useDefault: false,
+          overrides: [
+            { method: 'popup', minutes: 0 }, // At the time
+            { method: 'popup', minutes: 15 }, // 15 min before
+          ],
+        },
+        colorId: '11', // Red color for medications
+      };
+
+      const response = await calendar.events.insert({
+        calendarId: 'primary',
+        requestBody: event,
+      });
+
+      const eventId = response.data.id;
+      if (!eventId) {
+        throw new Error('No event ID returned from Google Calendar');
+      }
+
+      this.logger.log(`Medication reminder calendar event created: ${eventId} for medication ${medicationId}`);
+      return eventId;
+    } catch (error: any) {
+      this.logger.error(`Failed to create medication reminder calendar event: ${error.message}`, error.stack);
+      return null;
+    }
+  }
+
+  /**
+   * Sync all medication reminders for a patient to Google Calendar
+   */
+  async syncMedicationReminders(userId: string): Promise<void> {
+    try {
+      // Check if user has calendar connected
+      const connection = await this.prisma.calendarConnection.findUnique({
+        where: { userId },
+      });
+
+      if (!connection) {
+        this.logger.log(`User ${userId} does not have calendar connected, skipping medication reminder sync`);
+        return;
+      }
+
+      // Get patient profile
+      const profile = await this.prisma.patientProfile.findUnique({
+        where: { userId },
+      });
+
+      if (!profile) {
+        this.logger.log(`No patient profile found for user ${userId}`);
+        return;
+      }
+
+      // Get all pending medication reminders for this patient
+      const reminders = await this.prisma.medicationReminder.findMany({
+        where: {
+          medication: {
+            prescription: {
+              visit: {
+                appointment: {
+                  patientId: profile.id,
+                },
+              },
+            },
+          },
+          status: 'PENDING',
+          reminderTime: {
+            gte: new Date(), // Only future reminders
+          },
+        },
+        include: {
+          medication: true,
+        },
+        orderBy: {
+          reminderTime: 'asc',
+        },
+      });
+
+      this.logger.log(`Syncing ${reminders.length} medication reminders to calendar for user ${userId}`);
+
+      // Create calendar events for each reminder
+      for (const reminder of reminders) {
+        await this.createMedicationReminderEvent(
+          reminder.medicationId,
+          reminder.reminderTime,
+          userId,
+        );
+      }
+
+      this.logger.log(`Medication reminder sync completed for user ${userId}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to sync medication reminders: ${error.message}`, error.stack);
+    }
+  }
 }
