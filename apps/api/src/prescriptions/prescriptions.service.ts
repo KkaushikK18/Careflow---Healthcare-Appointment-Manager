@@ -51,12 +51,13 @@ export class PrescriptionsService {
       throw new ForbiddenException('You can only prescribe for your own appointments');
     }
 
-    // Verify appointment is completed or confirmed
-    if (!['CONFIRMED', 'COMPLETED'].includes(appointment.status)) {
-      throw new BadRequestException('Can only prescribe for confirmed or completed appointments');
+    // Verify appointment is confirmed, held, or completed
+    if (!['CONFIRMED', 'COMPLETED', 'HELD'].includes(appointment.status)) {
+      throw new BadRequestException('Can only prescribe for confirmed, held, or completed appointments');
     }
 
     // Create visit, prescription, and medications in a transaction
+    // Increased timeout to 30 seconds to handle medication reminder scheduling
     const result = await this.prisma.$transaction(async (tx) => {
       // Create or update visit
       let visit;
@@ -117,6 +118,9 @@ export class PrescriptionsService {
       }
 
       return { visit, prescription };
+    }, {
+      maxWait: 10000, // Maximum time to wait to start transaction (10 seconds)
+      timeout: 30000, // Maximum time for transaction to complete (30 seconds)
     });
 
     return result.prescription;
