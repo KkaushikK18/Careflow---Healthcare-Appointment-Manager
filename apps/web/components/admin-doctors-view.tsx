@@ -36,8 +36,8 @@ function Status({ children, tone = 'success' }: { children: React.ReactNode; ton
   return <span className={`status status-${tone}`}><span className="status-dot" />{children}</span>
 }
 
-function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <section className={`surface ${className}`}>{children}</section>
+function Card({ children, className = '', style }: { children: React.ReactNode; className?: string, style?: React.CSSProperties }) {
+  return <section className={`surface ${className}`} style={style}>{children}</section>
 }
 
 function Heading({ title, subtitle, action }: { title: string; subtitle: string; action?: React.ReactNode }) {

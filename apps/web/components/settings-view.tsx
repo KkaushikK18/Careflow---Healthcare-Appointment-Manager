@@ -6,8 +6,8 @@ import { useAuth } from './auth-provider'
 import { getCalendarStatus, disconnectCalendar, API_URL } from '@/lib/api'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
-function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <section className={`surface ${className}`}>{children}</section>
+function Card({ children, className = '', style }: { children: React.ReactNode; className?: string, style?: React.CSSProperties }) {
+  return <section className={`surface ${className}`} style={style}>{children}</section>
 }
 
 function Status({ children, tone = 'success' }: { children: React.ReactNode; tone?: 'success' | 'warning' | 'neutral' | 'danger' }) {

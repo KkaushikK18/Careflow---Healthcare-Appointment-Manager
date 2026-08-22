@@ -64,11 +64,11 @@ function Modal({ isOpen, onClose, title, children }: any) {
 }
 function Status({ children, tone = 'success' }: { children: React.ReactNode; tone?: 'success'|'warning'|'neutral'|'danger' }) { return <span className={`status status-${tone}`}><span className="status-dot" />{children}</span> }
 function Avatar({ initials, tone = 'teal' }: { initials: string; tone?: string }) { return <div className={`avatar avatar-${tone}`}>{initials}</div> }
-function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) { return <section className={`surface ${className}`}>{children}</section> }
-function Heading({ eyebrow, title, subtitle, action }: { eyebrow?: string; title: string; subtitle: string; action?: React.ReactNode }) { return <div className="page-heading"><div>{eyebrow && <p className="eyebrow">{eyebrow}</p>}<h1>{title}</h1><p className="muted">{subtitle}</p></div>{action}</div> }
-function Table({ children }: { children: React.ReactNode }) { return <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 560 }}>{children}</table></div> }
+function Card({ children, className, style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) { return <div className={`surface ${className || ''}`} style={style}>{children}</div> }
+function Heading({ title, subtitle, eyebrow, action }: { title: string, subtitle: string, eyebrow?: string, action?: React.ReactNode }) { return <div className="page-heading"><div>{eyebrow && <p className="eyebrow">{eyebrow}</p>}<h1>{title}</h1><p className="muted">{subtitle}</p></div>{action && <div>{action}</div>}</div> }
+function Table({ children }: { children: React.ReactNode }) { return <div className="responsive-table-desktop" style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>{children}</table></div> }
 function Row({ children }: { children: React.ReactNode }) { return <tr style={{ borderTop: '1px solid var(--border)' }}>{children}</tr> }
-function Cell({ children, muted = false }: { children: React.ReactNode; muted?: boolean }) { return <td style={{ padding: '15px 8px', color: muted ? 'var(--muted)' : 'var(--foreground)', fontSize: 12 }}>{children}</td> }
+function Cell({ children, muted = false, colSpan }: { children?: React.ReactNode; muted?: boolean; colSpan?: number }) { return <td colSpan={colSpan} style={{ padding: '15px 8px', color: muted ? 'var(--muted)' : 'var(--foreground)', fontSize: 12 }}>{children}</td> }
 
 function PatientDashboard({ go, appointments, meds, isLoading, isError }: { go: (label: string) => void, appointments: any[], meds: any[], isLoading: boolean, isError?: boolean }) {
   const { user } = useAuth();
@@ -101,7 +101,7 @@ function PatientDashboard({ go, appointments, meds, isLoading, isError }: { go: 
   const formattedDate = formatDate(today, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
   
   // Get user's first name from email (before @)
-  const userName = user?.email.split('@')[0].charAt(0).toUpperCase() + user?.email.split('@')[0].slice(1);
+  const userName = user?.email ? (user.email.split('@')[0].charAt(0).toUpperCase() + user.email.split('@')[0].slice(1)) : 'User';
 
   return <>
     <Heading 
@@ -1263,7 +1263,7 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
                       onClick={() => setSelectedConversation(userId)}
                     >
                       <div className="conversation-avatar">
-                        {contact?.name.split(' ').map(n => n[0]).join('').substring(0, 2) || '??'}
+                        {contact?.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2) || '??'}
                       </div>
                       <div className="conversation-info">
                         <div className="conversation-header">

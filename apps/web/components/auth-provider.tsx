@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react'
 import { loginApi, API_URL } from '@/lib/api'
 
-type User = { sub: string, email: string, role: string }
+type User = { sub: string, email: string, role: string, id?: string }
 type RegisterData = {
   email: string
   password: string
@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(data.access_token)
     try {
       const payload = JSON.parse(atob(data.access_token.split('.')[1]))
-      const userData = { sub: payload.sub, email: payload.email, role: payload.role }
+      const userData = { sub: payload.sub, email: payload.email, role: payload.role, id: payload.sub }
       setUser(userData)
       localStorage.setItem('token', data.access_token)
       localStorage.setItem('user', JSON.stringify(userData))
@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(data.access_token)
     try {
       const payload = JSON.parse(atob(data.access_token.split('.')[1]))
-      const userData = { sub: payload.sub, email: payload.email, role: payload.role }
+      const userData = { sub: payload.sub, email: payload.email, role: payload.role, id: payload.sub }
       setUser(userData)
       localStorage.setItem('token', data.access_token)
       localStorage.setItem('user', JSON.stringify(userData))

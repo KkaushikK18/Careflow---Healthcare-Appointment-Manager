@@ -35,9 +35,23 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const setTheme = (newTheme: Theme) => {
+    // Disable transitions temporarily for instant theme switch
+    const css = document.createElement('style')
+    css.textContent = '* { transition: none !important; }'
+    document.head.appendChild(css)
+    
+    // Update theme
     setThemeState(newTheme)
     localStorage.setItem('theme', newTheme)
     document.documentElement.setAttribute('data-theme', newTheme)
+    
+    // Force reflow
+    void document.body.offsetHeight
+    
+    // Re-enable transitions after a brief delay
+    setTimeout(() => {
+      document.head.removeChild(css)
+    }, 10)
   }
 
   const toggleTheme = () => {
@@ -59,8 +73,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
 export function useTheme() {
   const context = useContext(ThemeContext)
+  // Return default values if context is undefined (e.g., during SSR)
   if (context === undefined) {
-    throw new Error('useTheme must be used within a ThemeProvider')
+    return {
+      theme: 'light' as Theme,
+      toggleTheme: () => {},
+      setTheme: () => {},
+    }
   }
   return context
 }

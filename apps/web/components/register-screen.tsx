@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from './auth-provider'
 import { HeartPulse, Eye, EyeOff, Check, X, AlertCircle } from 'lucide-react'
+import { AuthHeader } from './auth-header'
 
 export function RegisterScreen({ onBackToLogin }: { onBackToLogin: () => void }) {
   const { register } = useAuth()
@@ -172,14 +173,16 @@ export function RegisterScreen({ onBackToLogin }: { onBackToLogin: () => void })
   }
 
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100vh',
-      background: 'var(--background)',
-      padding: '20px'
-    }}>
+    <>
+      <AuthHeader />
+      <div className="auth-screen-container" style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        background: 'var(--background)',
+        padding: '20px'
+      }}>
       <div className="surface" style={{
         width: '100%',
         maxWidth: 500,
@@ -565,6 +568,7 @@ export function RegisterScreen({ onBackToLogin }: { onBackToLogin: () => void })
         }
       `}</style>
     </div>
+    </>
   )
 }
 

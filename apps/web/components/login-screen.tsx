@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useAuth } from './auth-provider'
 import { HeartPulse } from 'lucide-react'
+import { AuthHeader } from './auth-header'
 
 export function LoginScreen({ onSwitchToRegister }: { onSwitchToRegister: () => void }) {
   const { login } = useAuth()
@@ -30,14 +31,16 @@ export function LoginScreen({ onSwitchToRegister }: { onSwitchToRegister: () => 
   }
 
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      minHeight: '100vh',
-      background: 'var(--background)',
-      padding: '20px'
-    }}>
+    <>
+      <AuthHeader />
+      <div className="auth-screen-container" style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        background: 'var(--background)',
+        padding: '20px'
+      }}>
       <div className="surface" style={{ width: '100%', maxWidth: 420, padding: 40 }}>
         <div style={{ textAlign: 'center', marginBottom: 30 }}>
           <div style={{
@@ -216,5 +219,6 @@ export function LoginScreen({ onSwitchToRegister }: { onSwitchToRegister: () => 
         )}
       </div>
     </div>
+    </>
   )
 }
