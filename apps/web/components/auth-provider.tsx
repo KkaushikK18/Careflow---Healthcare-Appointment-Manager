@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react'
-import { loginApi } from '@/lib/api'
+import { loginApi, API_URL } from '@/lib/api'
 
 type User = { sub: string, email: string, role: string }
 type RegisterData = {
@@ -37,16 +37,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password?: string) => {
     const data = await loginApi(email, password)
     setToken(data.access_token)
-    // Extract payload
-    const payload = JSON.parse(atob(data.access_token.split('.')[1]))
-    const userData = { sub: payload.sub, email: payload.email, role: payload.role }
-    setUser(userData)
-    localStorage.setItem('token', data.access_token)
-    localStorage.setItem('user', JSON.stringify(userData))
+    try {
+      const payload = JSON.parse(atob(data.access_token.split('.')[1]))
+      const userData = { sub: payload.sub, email: payload.email, role: payload.role }
+      setUser(userData)
+      localStorage.setItem('token', data.access_token)
+      localStorage.setItem('user', JSON.stringify(userData))
+    } catch {
+      logout()
+      throw new Error('Invalid authentication token received')
+    }
   }
 
   const register = async (registerData: RegisterData) => {
-    const response = await fetch('http://localhost:3001/auth/register', {
+    const response = await fetch(`${API_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(registerData)
@@ -59,12 +63,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const data = await response.json()
     setToken(data.access_token)
-    // Extract payload
-    const payload = JSON.parse(atob(data.access_token.split('.')[1]))
-    const userData = { sub: payload.sub, email: payload.email, role: payload.role }
-    setUser(userData)
-    localStorage.setItem('token', data.access_token)
-    localStorage.setItem('user', JSON.stringify(userData))
+    try {
+      const payload = JSON.parse(atob(data.access_token.split('.')[1]))
+      const userData = { sub: payload.sub, email: payload.email, role: payload.role }
+      setUser(userData)
+      localStorage.setItem('token', data.access_token)
+      localStorage.setItem('user', JSON.stringify(userData))
+    } catch {
+      logout()
+      throw new Error('Invalid authentication token received')
+    }
   }
 
   const logout = () => {

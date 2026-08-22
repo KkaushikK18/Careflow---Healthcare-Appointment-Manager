@@ -78,9 +78,6 @@ export function DoctorsView({ active }: { active: string }) {
           {filteredDoctors?.map((d: any) => {
             const name = `Dr. ${d.firstName} ${d.lastName}`
             const initials = `${d.firstName[0]}${d.lastName[0]}`
-            // Mock rating (in real app, would come from API)
-            const rating = (4 + Math.random()).toFixed(1)
-            const reviewCount = Math.floor(Math.random() * 50) + 10
             
             return (
               <Card key={d.id} className="doctor-card">
@@ -90,18 +87,6 @@ export function DoctorsView({ active }: { active: string }) {
                 </div>
                 <h3 style={{margin: '12px 0 4px', fontSize: 16}}>{name}</h3>
                 <p className="muted" style={{fontSize: 13}}>{d.specialisation}</p>
-                
-                {/* Rating Display */}
-                <div className="doctor-rating">
-                  <div className="stars">
-                    {Array.from({ length: 5 }, (_, i) => (
-                      <span key={i} className={i < Math.floor(parseFloat(rating)) ? 'star filled' : 'star'}>
-                        ★
-                      </span>
-                    ))}
-                  </div>
-                  <span className="rating-text">{rating} ({reviewCount} reviews)</span>
-                </div>
                 
                 <button className="outline-button" style={{marginTop: 16, width: '100%'}} onClick={() => setSelectedDoc(d)}>
                   Book Appointment <ChevronRight size={15}/>
@@ -202,105 +187,109 @@ function BookingView({ doctor, onBack }: { doctor: any, onBack: () => void }) {
   }
 
   return (
-    <Card>
-      <button onClick={onBack} className="text-button" style={{marginBottom: 20}}>← Back to doctors</button>
+    <div className="booking-container">
+      <button onClick={onBack} className="text-button" style={{marginBottom: 12}}>← Back to doctors</button>
       
-      <div className="booking-header">
+      <Card style={{padding: 20}}>
+        <div className="booking-header">
+          <div>
+            <h2 style={{margin: 0, fontSize: 20}}>Dr. {doctor.firstName} {doctor.lastName}</h2>
+            <p className="muted" style={{margin: '4px 0 0', fontSize: 13}}>{doctor.specialisation}</p>
+          </div>
+          <Status tone="success">Available</Status>
+        </div>
+      </Card>
+
+      <Card style={{marginTop: 0, padding: 20}}>
+        {/* Date Selection */}
         <div>
-          <h2 style={{margin: 0, fontSize: 22}}>Dr. {doctor.firstName} {doctor.lastName}</h2>
-          <p className="muted" style={{margin: '4px 0 0'}}>{doctor.specialisation}</p>
-        </div>
-        <Status tone="success">Available</Status>
-      </div>
-      
-      {/* Date Selection */}
-      <div style={{marginTop: 24, marginBottom: 24}}>
-        <label style={{display: 'block', marginBottom: 12, fontWeight: 600, fontSize: 14}}>
-          Select Date
-        </label>
-        <div className="date-selector">
-          {availableDates.slice(0, 7).map(date => (
-            <button
-              key={date}
-              className={`date-option ${selectedDate === date ? 'active' : ''}`}
-              onClick={() => setSelectedDate(date)}
-            >
-              <span className="date-day">{formatDateDisplay(date)}</span>
-              <span className="date-number">{new Date(date).getDate()}</span>
-            </button>
-          ))}
-        </div>
-        
-        {/* Alternative: Dropdown for more dates */}
-        <div style={{marginTop: 12}}>
-          <select 
-            className="modal-select" 
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-          >
-            {availableDates.map(date => (
-              <option key={date} value={date}>
-                {formatDateDisplay(date)} - {new Date(date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Symptoms Input */}
-      <div style={{marginBottom: 24}}>
-        <label style={{display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 14}}>
-          Chief Complaint / Symptoms <span style={{color: 'var(--coral)'}}>*</span>
-        </label>
-        <textarea 
-          value={symptoms}
-          onChange={e => setSymptoms(e.target.value)}
-          placeholder="Describe your symptoms in detail. Our AI will prepare a clinical summary for the doctor..."
-          className="modal-textarea"
-          rows={4}
-          style={{width: '100%'}}
-        />
-        <p className="muted" style={{fontSize: 12, marginTop: 6}}>
-          This helps the doctor prepare for your visit and saves time during the appointment.
-        </p>
-      </div>
-
-      {/* Available Slots */}
-      <div>
-        <h3 style={{margin: '0 0 12px', fontSize: 16}}>
-          Available Time Slots
-        </h3>
-        {isLoading ? (
-          <div style={{padding: 20, textAlign: 'center'}}>
-            <p className="muted">Loading available slots...</p>
-          </div>
-        ) : slots?.length === 0 ? (
-          <div style={{padding: 20, textAlign: 'center', background: 'var(--mint)', borderRadius: 8}}>
-            <p className="muted">No slots available on this date. Try another date.</p>
-          </div>
-        ) : (
-          <div className="slots-grid">
-            {slots?.map((slot: any) => (
-              <button 
-                key={slot.startTime} 
-                onClick={() => handleBook(slot)}
-                disabled={booking || !symptoms.trim()}
-                className="slot-button"
+          <label style={{display: 'block', marginBottom: 10, fontWeight: 600, fontSize: 13}}>
+            Select Date
+          </label>
+          <div className="date-selector">
+            {availableDates.slice(0, 7).map(date => (
+              <button
+                key={date}
+                className={`date-option ${selectedDate === date ? 'active' : ''}`}
+                onClick={() => setSelectedDate(date)}
               >
-                {new Date(slot.startTime).toLocaleTimeString('en-US', {hour: 'numeric', minute:'2-digit'})}
+                <span className="date-day">{formatDateDisplay(date)}</span>
+                <span className="date-number">{new Date(date).getDate()}</span>
               </button>
             ))}
           </div>
-        )}
-      </div>
-      
-      {booking && (
-        <div style={{marginTop: 16, padding: 12, background: 'var(--mint)', borderRadius: 8, textAlign: 'center'}}>
-          <p style={{margin: 0, color: 'var(--primary)', fontWeight: 600}}>
-            Booking your appointment...
+          
+          {/* Alternative: Dropdown for more dates */}
+          <div style={{marginTop: 10}}>
+            <select 
+              className="modal-select" 
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+            >
+              {availableDates.map(date => (
+                <option key={date} value={date}>
+                  {formatDateDisplay(date)} - {new Date(date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Symptoms Input */}
+        <div style={{marginTop: 20}}>
+          <label style={{display: 'block', marginBottom: 8, fontWeight: 600, fontSize: 13}}>
+            Chief Complaint / Symptoms <span style={{color: 'var(--coral)'}}>*</span>
+          </label>
+          <textarea 
+            value={symptoms}
+            onChange={e => setSymptoms(e.target.value)}
+            placeholder="Describe your symptoms in detail. Our AI will prepare a clinical summary for the doctor..."
+            className="modal-textarea"
+            rows={3}
+            style={{width: '100%', fontSize: 13}}
+          />
+          <p className="muted" style={{fontSize: 11, marginTop: 4}}>
+            This helps the doctor prepare for your visit and saves time during the appointment.
           </p>
         </div>
-      )}
-    </Card>
+
+        {/* Available Slots */}
+        <div style={{marginTop: 20}}>
+          <h3 style={{margin: '0 0 10px', fontSize: 15}}>
+            Available Time Slots
+          </h3>
+          {isLoading ? (
+            <div style={{padding: 16, textAlign: 'center'}}>
+              <p className="muted">Loading available slots...</p>
+            </div>
+          ) : slots?.length === 0 ? (
+            <div style={{padding: 16, textAlign: 'center', background: 'var(--mint)', borderRadius: 8}}>
+              <p className="muted">No slots available on this date. Try another date.</p>
+            </div>
+          ) : (
+            <div className="slots-grid">
+              {slots?.map((slot: any) => (
+                <button 
+                  key={slot.startTime} 
+                  onClick={() => handleBook(slot)}
+                  disabled={booking || !symptoms.trim()}
+                  className="slot-button"
+                >
+                  {new Date(slot.startTime).toLocaleTimeString('en-US', {hour: 'numeric', minute:'2-digit'})}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        {booking && (
+          <div style={{marginTop: 12, padding: 10, background: 'var(--mint)', borderRadius: 8, textAlign: 'center'}}>
+            <p style={{margin: 0, color: 'var(--primary)', fontWeight: 600, fontSize: 13}}>
+              Booking your appointment...
+            </p>
+          </div>
+        )}
+      </Card>
+    </div>
   )
 }

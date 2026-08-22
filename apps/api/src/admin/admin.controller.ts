@@ -12,6 +12,8 @@ import {
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { AuthGuard } from '../auth/auth.guard';
+import { CreateDoctorDto } from './dto/create-doctor.dto';
+import { UpdateDoctorDto } from './dto/update-doctor.dto';
 
 @Controller('admin')
 export class AdminController {
@@ -53,14 +55,14 @@ export class AdminController {
 
   @UseGuards(AuthGuard)
   @Post('doctors')
-  createDoctor(@Request() req: any, @Body() dto: any) {
+  createDoctor(@Request() req: any, @Body() dto: CreateDoctorDto) {
     this.checkAdmin(req);
     return this.adminService.createDoctor(dto);
   }
 
   @UseGuards(AuthGuard)
   @Put('doctors/:id')
-  updateDoctor(@Request() req: any, @Param('id') id: string, @Body() dto: any) {
+  updateDoctor(@Request() req: any, @Param('id') id: string, @Body() dto: UpdateDoctorDto) {
     this.checkAdmin(req);
     return this.adminService.updateDoctor(id, dto);
   }

@@ -158,60 +158,62 @@ export function LoginScreen({ onSwitchToRegister }: { onSwitchToRegister: () => 
           </div>
         </form>
 
-        {/* Demo Accounts */}
-        <div style={{
-          marginTop: 30,
-          paddingTop: 24,
-          borderTop: '1px solid var(--border)'
-        }}>
-          <p style={{
-            fontSize: 12,
-            fontWeight: 600,
-            color: 'var(--muted)',
-            marginBottom: 12,
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px'
+        {/* Demo Accounts - Only visible in development */}
+        {process.env.NODE_ENV !== 'production' && (
+          <div style={{
+            marginTop: 30,
+            paddingTop: 24,
+            borderTop: '1px solid var(--border)'
           }}>
-            Demo Accounts
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {[
-              { email: 'patient@demo.local', role: 'Patient' },
-              { email: 'doctor@demo.local', role: 'Doctor' },
-              { email: 'admin@demo.local', role: 'Admin' }
-            ].map(demo => (
-              <button
-                key={demo.email}
-                type="button"
-                onClick={() => handleDemoLogin(demo.email)}
-                style={{
-                  padding: '8px 12px',
-                  borderRadius: 6,
-                  border: '1px solid var(--border)',
-                  background: 'var(--surface)',
-                  color: 'var(--foreground)',
-                  fontSize: 12,
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
-                }}
-              >
-                <span>{demo.email}</span>
-                <span style={{ color: 'var(--muted)', fontSize: 11 }}>{demo.role}</span>
-              </button>
-            ))}
+            <p style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: 'var(--muted)',
+              marginBottom: 12,
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}>
+              Demo Accounts (Dev Only)
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[
+                { email: 'patient@demo.local', role: 'Patient' },
+                { email: 'doctor@demo.local', role: 'Doctor' },
+                { email: 'admin@demo.local', role: 'Admin' }
+              ].map(demo => (
+                <button
+                  key={demo.email}
+                  type="button"
+                  onClick={() => handleDemoLogin(demo.email)}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface)',
+                    color: 'var(--foreground)',
+                    fontSize: 12,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}
+                >
+                  <span>{demo.email}</span>
+                  <span style={{ color: 'var(--muted)', fontSize: 11 }}>{demo.role}</span>
+                </button>
+              ))}
+            </div>
+            <p style={{
+              fontSize: 10,
+              color: 'var(--muted)',
+              marginTop: 8,
+              lineHeight: 1.4
+            }}>
+              All demo accounts use password: <code style={{ background: 'var(--surface)', padding: '2px 4px', borderRadius: 3 }}>demo123</code>
+            </p>
           </div>
-          <p style={{
-            fontSize: 10,
-            color: 'var(--muted)',
-            marginTop: 8,
-            lineHeight: 1.4
-          }}>
-            All demo accounts use password: <code style={{ background: 'var(--surface)', padding: '2px 4px', borderRadius: 3 }}>demo123</code>
-          </p>
-        </div>
+        )}
       </div>
     </div>
   )

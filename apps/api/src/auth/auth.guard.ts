@@ -1,8 +1,10 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable, UnauthorizedException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
+  private readonly logger = new Logger(AuthGuard.name);
+
   constructor(private jwtService: JwtService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -10,8 +12,8 @@ export class AuthGuard implements CanActivate {
     const token = this.extractTokenFromHeader(request);
     
     if (!token) {
-      console.log('AuthGuard: No token found in headers');
-      throw new UnauthorizedException();
+      this.logger.warn('No authentication token found in request headers');
+      throw new UnauthorizedException('Authentication token required');
     }
     
     try {
@@ -20,8 +22,8 @@ export class AuthGuard implements CanActivate {
       });
       request['user'] = payload;
     } catch (e) {
-      console.log('AuthGuard: verifyAsync failed:', e.message);
-      throw new UnauthorizedException();
+      this.logger.warn(`JWT verification failed: ${e.message}`);
+      throw new UnauthorizedException('Invalid or expired token');
     }
     return true;
   }

@@ -29,8 +29,6 @@ const nav: Record<Role, NavItem[]> = {
   doctor: [['Today', LayoutDashboard], ['Appointments', CalendarDays], ['Patients', Users], ['Medications', HeartPulse], ['Schedule', Clock3], ['Messages', MessageCircle]],
   admin: [['Overview', LayoutDashboard], ['Appointments', CalendarDays], ['Doctors', Stethoscope], ['Leave & availability', Clock3], ['System health', ShieldCheck]],
 }
-const names = { patient: 'Maya Chen', doctor: 'Dr. Ananya Rao', admin: 'Alex Lewis' }
-const roles = { patient: 'Patient', doctor: 'Cardiologist', admin: 'Administrator' }
 
 
 function Modal({ isOpen, onClose, title, children }: any) {
@@ -47,6 +45,8 @@ function Modal({ isOpen, onClose, title, children }: any) {
         // Close on Escape key
         if (e.key === 'Escape') onClose();
       }}
+      tabIndex={-1}
+      ref={(el) => { if (el) el.focus(); }}
     >
       <div className="modal-container modal-content-animated">
         <div className="modal-header">
@@ -70,7 +70,7 @@ function Table({ children }: { children: React.ReactNode }) { return <div style=
 function Row({ children }: { children: React.ReactNode }) { return <tr style={{ borderTop: '1px solid var(--border)' }}>{children}</tr> }
 function Cell({ children, muted = false }: { children: React.ReactNode; muted?: boolean }) { return <td style={{ padding: '15px 8px', color: muted ? 'var(--muted)' : 'var(--foreground)', fontSize: 12 }}>{children}</td> }
 
-function PatientDashboard({ go, appointments, meds, isLoading }: { go: (label: string) => void, appointments: any[], meds: any[], isLoading: boolean }) {
+function PatientDashboard({ go, appointments, meds, isLoading, isError }: { go: (label: string) => void, appointments: any[], meds: any[], isLoading: boolean, isError?: boolean }) {
   const { user } = useAuth();
   const { toast } = useToast();
   
@@ -90,7 +90,7 @@ function PatientDashboard({ go, appointments, meds, isLoading }: { go: (label: s
     return daysSince <= 30; // Active if prescribed in last 30 days
   }) || [];
   
-  const medicationConsistency = totalMedications > 0 ? Math.min(95, Math.round(85 + Math.random() * 10)) : 0;
+  const medicationConsistency = totalMedications > 0 ? 92 : 0; // Replace random with a stable value until history tracking is implemented
   
   // Get greeting based on time
   const hour = new Date().getHours();
@@ -110,6 +110,12 @@ function PatientDashboard({ go, appointments, meds, isLoading }: { go: (label: s
       subtitle={nextAppointment ? "Your next appointment is coming up." : "You're all caught up with appointments."} 
       action={<button className="primary-button" onClick={() => go('Find a doctor')}><Plus size={17}/> Book an appointment</button>}
     />
+    
+    {isError && (
+      <div style={{ padding: 15, background: 'rgba(197, 90, 81, 0.1)', color: 'var(--coral)', borderRadius: 8, marginBottom: 20, border: '1px solid var(--coral)' }}>
+        <p style={{ margin: 0, fontWeight: 500 }}>⚠️ Failed to load some dashboard data. Please try refreshing the page.</p>
+      </div>
+    )}
     
     <div className="hero-grid">
       {/* Next Appointment Card */}
@@ -272,7 +278,7 @@ function PatientDashboard({ go, appointments, meds, isLoading }: { go: (label: s
   </>
 }
 
-function DoctorDashboard({ appointments, isLoading, token, refetchLeaves, realMessages }: any) { 
+function DoctorDashboard({ appointments, isLoading, isError, token, refetchLeaves, realMessages }: any) { 
     const { user } = useAuth();
     const [selectedNotes, setSelectedNotes] = useState<string | null>(null);
     const [showLeaveModal, setShowLeaveModal] = useState(false);
@@ -291,18 +297,20 @@ function DoctorDashboard({ appointments, isLoading, token, refetchLeaves, realMe
       a.status === 'CONFIRMED' && !a.visit
     ).length || 0;
 
-    // Calculate open slots for next 7 days
-    // This is a simplified calculation - actual implementation would check doctor's schedule
-    const workingDaysPerWeek = 5;
-    const slotsPerDay = 8; // Assuming 8 appointment slots per day
+    // Calculate open slots for next 7 days based on actual booked appointments
+    // Note: This is a simplified calculation showing available capacity
+    // A full implementation would query the doctor's schedule, working hours, and leaves
     const bookedNext7Days = appointments?.filter((a: any) => {
       const aptDate = new Date(a.startTime);
       const today = new Date();
       const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
       return aptDate >= today && aptDate <= nextWeek;
     }).length || 0;
-    const totalSlotsNext7Days = workingDaysPerWeek * slotsPerDay;
-    const openSlots = Math.max(0, totalSlotsNext7Days - bookedNext7Days);
+    
+    // Estimate total capacity: assuming 5 working days × 8 hours × 2 slots/hour = 80 slots per week
+    // In a real implementation, this would calculate from doctor.workingDays, workingHours, and slotDuration
+    const estimatedWeeklyCapacity = 80;
+    const openSlots = Math.max(0, estimatedWeeklyCapacity - bookedNext7Days);
 
     // Unread patient messages
     const unreadMessages = realMessages?.filter((m: any) => 
@@ -358,6 +366,13 @@ function DoctorDashboard({ appointments, isLoading, token, refetchLeaves, realMe
       </Modal>
 
       <Heading eyebrow={formatDate(new Date())} title={`${greeting}, Doctor`} subtitle={`You have ${todayAppointments.length} appointment${todayAppointments.length !== 1 ? 's' : ''} today.`} action={<button className="primary-button" onClick={() => setShowLeaveModal(true)}><Plus size={17}/> Add availability</button>}/>
+      
+      {isError && (
+        <div style={{ padding: 15, background: 'rgba(197, 90, 81, 0.1)', color: 'var(--coral)', borderRadius: 8, marginBottom: 20, border: '1px solid var(--coral)' }}>
+          <p style={{ margin: 0, fontWeight: 500 }}>⚠️ Failed to load some dashboard data. Please try refreshing the page.</p>
+        </div>
+      )}
+
       <Metrics items={[
         ["Today's appointments", todayAppointments.length.toString(), ''],
         ['Awaiting notes', awaitingNotes.toString(), awaitingNotes > 0 ? 'Complete visit notes' : ''],
@@ -368,7 +383,7 @@ function DoctorDashboard({ appointments, isLoading, token, refetchLeaves, realMe
     </> 
 }
 function Metrics({ items }: { items: string[][] }) { return <div className="metric-grid">{items.map(([l,v,d]) => <Card className="metric-card" key={l}><p className="muted">{l}</p><strong>{v}</strong><span>{d}</span></Card>)}</div> }
-function AdminDashboard({ metrics, isLoading }: any) { 
+function AdminDashboard({ metrics, isLoading, isError }: any) { 
   // Generate real system events from actual data
   const systemEvents = [];
   const now = new Date();
@@ -421,6 +436,11 @@ function AdminDashboard({ metrics, isLoading }: any) {
   
   return <>
     <Heading eyebrow="OPERATIONS / OVERVIEW" title="Good morning, Admin" subtitle="A clear view of how CareFlow is running today."/>
+    {isError && (
+      <div style={{ padding: 15, background: 'rgba(197, 90, 81, 0.1)', color: 'var(--coral)', borderRadius: 8, marginBottom: 20, border: '1px solid var(--coral)' }}>
+        <p style={{ margin: 0, fontWeight: 500 }}>⚠️ Failed to load admin metrics. Please check backend connection.</p>
+      </div>
+    )}
     <Metrics items={[
       ["Appointments today", metrics?.appointmentsToday?.toString() || '0', ''],
       ['Active doctors', metrics?.activeDoctors?.toString() || '0', ''],
@@ -487,43 +507,43 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
   const [adminPatientFilter, setAdminPatientFilter] = useState<string>('all');
   const [adminStatusFilter, setAdminStatusFilter] = useState<string>('all');
   
-  const { data: realAppointments, isLoading: appsLoading } = useQuery({
+  const { data: realAppointments, isLoading: appsLoading, isError: appsError } = useQuery({
     queryKey: ['appointments', role],
     queryFn: () => fetchAppointments(token as string),
     enabled: !!token
   });
   
-  const { data: realMeds, isLoading: medsLoading } = useQuery({
+  const { data: realMeds, isLoading: medsLoading, isError: medsError } = useQuery({
     queryKey: ['medications', role],
     queryFn: () => fetchMedications(token as string),
     enabled: !!token && role === 'patient'
   });
   
-  const { data: adminMetrics, isLoading: adminLoading } = useQuery({
+  const { data: adminMetrics, isLoading: adminLoading, isError: adminError } = useQuery({
     queryKey: ['adminMetrics', role],
     queryFn: () => fetchAdminMetrics(token as string),
     enabled: !!token && role === 'admin'
   });
 
-  const { data: realMessages, isLoading: msgsLoading } = useQuery({
+  const { data: realMessages, isLoading: msgsLoading, isError: msgsError } = useQuery({
     queryKey: ['messages', role],
     queryFn: () => fetchMessages(token as string),
     enabled: !!token
   });
 
-  const { data: realPatients, isLoading: patientsLoading } = useQuery({
+  const { data: realPatients, isLoading: patientsLoading, isError: patientsError } = useQuery({
     queryKey: ['patients', role],
     queryFn: () => fetchPatients(token as string),
     enabled: !!token && role === 'doctor'
   });
 
-  const { data: realLeaves, isLoading: leavesLoading, refetch: refetchLeaves } = useQuery({
+  const { data: realLeaves, isLoading: leavesLoading, refetch: refetchLeaves, isError: leavesError } = useQuery({
     queryKey: ['leaves', role],
     queryFn: () => role === 'admin' ? fetchAllLeaves(token as string) : fetchLeaves(token as string),
     enabled: !!token && (role === 'doctor' || role === 'admin')
   });
 
-  const { data: allDoctors, isLoading: doctorsLoading } = useQuery({
+  const { data: allDoctors, isLoading: doctorsLoading, isError: doctorsError } = useQuery({
     queryKey: ['allDoctors'],
     queryFn: () => fetchDoctors(),
     enabled: role === 'admin' // Only fetch for admin users
@@ -626,7 +646,7 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
   const [showAppointmentActionsModal, setShowAppointmentActionsModal] = useState(false);
   const [showBookingModal, setShowBookingModal] = useState(false);
   
-  if (active === 'Overview' || active === 'Today') return role === 'patient' ? <PatientDashboard go={go} appointments={realAppointments} meds={realMeds} isLoading={appsLoading || medsLoading}/> : role === 'doctor' ? <DoctorDashboard appointments={realAppointments} isLoading={appsLoading} token={token} refetchLeaves={refetchLeaves} realMessages={realMessages}/> : <AdminDashboard metrics={adminMetrics} isLoading={adminLoading}/>
+  if (active === 'Overview' || active === 'Today') return role === 'patient' ? <PatientDashboard go={go} appointments={realAppointments} meds={realMeds} isLoading={appsLoading || medsLoading} isError={appsError || medsError}/> : role === 'doctor' ? <DoctorDashboard appointments={realAppointments} isLoading={appsLoading} isError={appsError} token={token} refetchLeaves={refetchLeaves} realMessages={realMessages}/> : <AdminDashboard metrics={adminMetrics} isLoading={adminLoading} isError={adminError}/>
   if (active === 'Appointments') {
     if (selectedAppt) {
       return (
@@ -740,9 +760,7 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
 
     return <>
       <Modal isOpen={showBookingModal} onClose={() => setShowBookingModal(false)} title="Book New Appointment">
-        <div style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-          <DoctorsView active="Find a doctor" />
-        </div>
+        <DoctorsView active="Find a doctor" />
       </Modal>
 
       <Heading 
@@ -1621,13 +1639,7 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
           <button className="text-button" onClick={() => setShowScheduleModal(false)}>Cancel</button>
           <button className="primary-button" onClick={async () => {
-             console.log('Confirm Block clicked'); // Debug
-             console.log('isAdmin:', isAdmin); // Debug
-             console.log('adminSelectedDoctor:', adminSelectedDoctor); // Debug
-             console.log('scheduleDate:', scheduleDate); // Debug
-             
              if (isAdmin && !adminSelectedDoctor) {
-               console.log('Validation: Doctor not selected'); // Debug
                toast({
                  title: 'Validation Error',
                  description: 'Please select a doctor',
@@ -1637,7 +1649,6 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
              }
              
              if (!scheduleDate) {
-               console.log('Validation: Date not selected'); // Debug
                toast({
                  title: 'Validation Error',
                  description: 'Please select a date',
@@ -1645,8 +1656,6 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
                });
                return;
              }
-             
-             console.log('Showing confirmation dialog...'); // Debug
              
              try {
                const confirmed = await confirm({
@@ -1657,22 +1666,15 @@ function RecordsView({ role, active, go }: { role: Role; active: string; go: (s:
                  variant: 'warning'
                });
                
-               console.log('Confirmation result:', confirmed); // Debug
-               
                if (!confirmed) {
-                 console.log('User cancelled'); // Debug
                  return;
                }
                
                if (isAdmin) {
-                 console.log('Admin adding leave for doctor:', adminSelectedDoctor); // Debug
                  await addDoctorLeave(token as string, adminSelectedDoctor, scheduleDate);
                } else {
-                 console.log('Doctor adding leave for self'); // Debug
                  await addLeave(token as string, scheduleDate);
                }
-               
-               console.log('Leave added successfully'); // Debug
                
                setShowScheduleModal(false);
                setScheduleDate('');
@@ -2128,11 +2130,21 @@ function CareFlowApp() {
   const [mobileOpen, setMobileOpen] = useState(false); 
   const [notice, setNotice] = useState('');
   const [showRegister, setShowRegister] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   
   const role = (user?.role.toLowerCase() || 'patient') as Role;
   const currentNav = useMemo(() => nav[role], [role]); 
   const go = (label: string) => { setActive(label); setMobileOpen(false) };
   const initials = user?.email.substring(0,2).toUpperCase() || 'NA';
+  
+  // Close profile menu when clicking outside
+  const handleProfileMenuToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowProfileMenu(!showProfileMenu);
+  };
+  
+  // Close profile menu when clicking anywhere
+  const closeProfileMenu = () => setShowProfileMenu(false);
   
   if (!user) {
     return showRegister ? (
@@ -2142,7 +2154,7 @@ function CareFlowApp() {
     );
   }
   
-  return <div className="app-shell"><aside className={mobileOpen ? 'sidebar open' : 'sidebar'}><div className="brand"><span className="brand-mark"><HeartPulse size={18}/></span><span>Care<span>Flow</span></span><button className="close-mobile" onClick={() => setMobileOpen(false)}><X size={18}/></button></div><div className="role-switcher" style={{padding: "10px 15px", borderBottom: "1px solid var(--border)", display: 'flex', justifyContent: 'space-between'}}><span>Workspace Role</span><strong>{role.toUpperCase()}</strong></div><nav>{currentNav.map(([label, Icon]) => <button className={active === label ? 'nav-item active' : 'nav-item'} key={label} onClick={() => go(label)}><Icon size={17}/><span>{label}</span></button>)}</nav><div className="sidebar-bottom"><button className={`nav-item ${active === 'Settings' ? 'active' : ''}`} onClick={() => go('Settings')}><Settings2 size={17}/><span>Settings</span></button><div className="profile-chip" style={{cursor: 'pointer'}} onClick={logout}><Avatar initials={initials}/><span><strong>{user?.email}</strong><small>{roles[role]}</small></span><MoreHorizontal size={16}/></div></div></aside><div className="main-area"><header className="topbar"><button className="mobile-menu" onClick={() => setMobileOpen(true)} aria-label="Open navigation"><Menu size={20}/></button><div className="breadcrumb"><span>Workspace</span><ChevronRight size={14}/><strong>{active}</strong></div><div className="top-actions"><ThemeToggle /><button className="icon-button notification" aria-label="Notifications" onClick={() => setNotice('No new notifications')}><Bell size={18}/><span/></button><div className="top-avatar" onClick={logout} style={{cursor: 'pointer'}}>{initials}</div></div></header><main className="content">{active === 'Settings' ? <SettingsView setNotice={setNotice} /> : <RecordsView role={role} active={active} go={go}/>} </main></div>{notice && <button className="toast" onClick={() => setNotice('')}><Bell size={16}/> {notice}<X size={15}/></button>}</div>
+  return <div className="app-shell" onClick={closeProfileMenu}><aside className={mobileOpen ? 'sidebar open' : 'sidebar'}><div className="brand"><span className="brand-mark"><HeartPulse size={18}/></span><span>Care<span>Flow</span></span><button className="close-mobile" onClick={() => setMobileOpen(false)}><X size={18}/></button></div><div className="role-switcher" style={{padding: "10px 15px", borderBottom: "1px solid var(--border)", display: 'flex', justifyContent: 'space-between'}}><span>Workspace Role</span><strong>{role.toUpperCase()}</strong></div><nav>{currentNav.map(([label, Icon]) => <button className={active === label ? 'nav-item active' : 'nav-item'} key={label} onClick={() => go(label)}><Icon size={17}/><span>{label}</span></button>)}</nav><div className="sidebar-bottom"><button className={`nav-item ${active === 'Settings' ? 'active' : ''}`} onClick={() => go('Settings')}><Settings2 size={17}/><span>Settings</span></button><div className="profile-chip" style={{cursor: 'pointer', position: 'relative'}} onClick={handleProfileMenuToggle}><Avatar initials={initials}/><span><strong>{user?.email}</strong><small>{role.charAt(0).toUpperCase() + role.slice(1)}</small></span><MoreHorizontal size={16}/>{showProfileMenu && <div className="profile-dropdown" onClick={(e) => e.stopPropagation()}><button className="profile-dropdown-item" onClick={() => { go('Settings'); closeProfileMenu(); }}><Settings2 size={16}/>Settings</button><button className="profile-dropdown-item logout-item" onClick={() => { logout(); closeProfileMenu(); }}><X size={16}/>Logout</button></div>}</div></div></aside><div className="main-area"><header className="topbar"><button className="mobile-menu" onClick={() => setMobileOpen(true)} aria-label="Open navigation"><Menu size={20}/></button><div className="breadcrumb"><span>Workspace</span><ChevronRight size={14}/><strong>{active}</strong></div><div className="top-actions"><ThemeToggle /><button className="icon-button notification" aria-label="Notifications" onClick={() => setNotice('No new notifications')}><Bell size={18}/><span/></button><div className="top-avatar" onClick={handleProfileMenuToggle} style={{cursor: 'pointer', position: 'relative'}}>{initials}{showProfileMenu && <div className="profile-dropdown profile-dropdown-top" onClick={(e) => e.stopPropagation()}><div className="profile-dropdown-header"><Avatar initials={initials} tone="teal"/><div><strong>{user?.email}</strong><small style={{display: 'block', color: 'var(--muted)', fontSize: 12}}>{role.charAt(0).toUpperCase() + role.slice(1)}</small></div></div><div className="profile-dropdown-divider"></div><button className="profile-dropdown-item" onClick={() => { go('Settings'); closeProfileMenu(); }}><Settings2 size={16}/>Settings</button><button className="profile-dropdown-item logout-item" onClick={() => { logout(); closeProfileMenu(); }}><X size={16}/>Logout</button></div>}</div></div></header><main className="content">{active === 'Settings' ? <SettingsView setNotice={setNotice} /> : <RecordsView role={role} active={active} go={go}/>} </main></div>{notice && <button className="toast" onClick={() => setNotice('')}><Bell size={16}/> {notice}<X size={15}/></button>}</div>
 }
 
 // Wrap with ErrorBoundary for production resilience

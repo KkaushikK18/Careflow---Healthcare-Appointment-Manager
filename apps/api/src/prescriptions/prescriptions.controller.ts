@@ -1,6 +1,7 @@
 import { Controller, Post, Get, Patch, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { PrescriptionsService } from './prescriptions.service';
 import { AuthGuard } from '../auth/auth.guard';
+import { CreatePrescriptionDto } from './dto/create-prescription.dto';
 
 @Controller('prescriptions')
 export class PrescriptionsController {
@@ -12,7 +13,7 @@ export class PrescriptionsController {
    */
   @UseGuards(AuthGuard)
   @Post()
-  async createPrescription(@Request() req: any, @Body() dto: any) {
+  async createPrescription(@Request() req: any, @Body() dto: CreatePrescriptionDto) {
     if (req.user.role !== 'DOCTOR') {
       throw new Error('Only doctors can create prescriptions');
     }

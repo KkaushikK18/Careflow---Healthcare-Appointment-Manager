@@ -49,7 +49,11 @@ export class DoctorsService {
     if (!dateString) {
       throw new BadRequestException('Date query parameter is required (YYYY-MM-DD)');
     }
-    const date = new Date(dateString);
+    
+    // Parse date consistently in UTC to avoid timezone issues
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+    
     if (isNaN(date.getTime())) {
       throw new BadRequestException('Invalid date format. Use YYYY-MM-DD');
     }
@@ -70,7 +74,7 @@ export class DoctorsService {
       return []; // No slots available if on leave
     }
 
-    const dayOfWeek = date.getDay(); 
+    const dayOfWeek = date.getUTCDay(); 
     if (!doctor.workingDays.includes(dayOfWeek)) {
       return [];
     }
@@ -84,16 +88,17 @@ export class DoctorsService {
     const [startHour, startMin] = hours.start.split(':').map(Number);
     const [endHour, endMin] = hours.end.split(':').map(Number);
 
+    // Create times in UTC to maintain consistency
     const startTime = new Date(date);
-    startTime.setHours(startHour, startMin, 0, 0);
+    startTime.setUTCHours(startHour, startMin, 0, 0);
 
     const endTime = new Date(date);
-    endTime.setHours(endHour, endMin, 0, 0);
+    endTime.setUTCHours(endHour, endMin, 0, 0);
 
     const startOfDay = new Date(date);
-    startOfDay.setHours(0,0,0,0);
+    startOfDay.setUTCHours(0,0,0,0);
     const endOfDay = new Date(date);
-    endOfDay.setHours(23,59,59,999);
+    endOfDay.setUTCHours(23,59,59,999);
 
     const appointments = await this.prisma.appointment.findMany({
       where: {

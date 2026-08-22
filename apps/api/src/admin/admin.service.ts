@@ -60,7 +60,7 @@ export class AdminService {
       appointmentsToday,
       activeDoctors,
       completionRate: `${completionRate}%`,
-      avgResponseTime: '12 min'
+      avgResponseTime: 'N/A' // Requires tracking message response timestamps in the future
     };
   }
 

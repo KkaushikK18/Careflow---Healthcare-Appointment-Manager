@@ -1,4 +1,4 @@
-export const API_URL = 'http://localhost:3001'
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
 export async function loginApi(email: string, password: string = 'password') {
   const res = await fetch(`${API_URL}/auth/login`, {
